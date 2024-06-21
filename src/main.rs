@@ -57,17 +57,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // An object for player score keeping and updating.
     let storage_resources = vec![
-        Resource::Metal,
-        Resource::Mineral,
-        Resource::Gas,
+        Resource::Iron,
+        Resource::Aluminum,
         Resource::Carbon,
+        Resource::Silicon,
+        Resource::Uranium,
+        Resource::Water,
+        Resource::Sand,
     ];
 
     let storage_commodities = vec![
-        CommodityGroup::MetalPipe,
-        CommodityGroup::MetalPlate,
-        CommodityGroup::Gravel,
+        CommodityGroup::Concrete,
+        CommodityGroup::Electronics,
         CommodityGroup::Fuel,
+        CommodityGroup::Glass,
     ];
 
     let mut resource_manager = ResourceManager::new(storage_resources, storage_commodities);
@@ -81,17 +84,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]);
 
     let mut resource_select = MineResourceSelect::new(vec![
-        Resource::Metal,
-        Resource::Mineral,
+        Resource::Iron,
+        Resource::Aluminum,
         Resource::Carbon,
-        Resource::Gas,
+        Resource::Silicon,
+        Resource::Uranium,
+        Resource::Water,
+        Resource::Sand,
     ]);
 
     let mut commodity_select = FactoryCommoditySelect::new(vec![
-        CommodityGroup::MetalPipe,
-        CommodityGroup::MetalPlate,
-        CommodityGroup::Gravel,
+        CommodityGroup::Concrete,
+        CommodityGroup::Electronics,
         CommodityGroup::Fuel,
+        CommodityGroup::Glass,
     ]);
 
     // The game controller, work with the Map object.
@@ -224,7 +230,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                                             structure: Mine::new(resource_select.selected()),
                                         },
                                         StructureGroup::Storage => Structure::Storage {
-                                            structure: Storage::new(),
+                                            structure: Storage::new(
+                                                resource_manager.resource_types(),
+                                                resource_manager.commodity_types(),
+                                            ),
                                         },
                                         StructureGroup::Factory => Structure::Factory {
                                             structure: {

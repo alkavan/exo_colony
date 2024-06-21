@@ -28,10 +28,11 @@ impl Display for StructureGroup {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum CommodityGroup {
-    MetalPlate,
-    MetalPipe,
-    Gravel,
+    Concrete,
+    Electronics,
     Fuel,
+    Glass,
+    Spaceship,
 }
 
 impl Display for CommodityGroup {
@@ -379,8 +380,18 @@ impl Base {
             },
         };
 
+        let storage_resources = vec![
+            Resource::Iron,
+            Resource::Aluminum,
+            Resource::Carbon,
+            Resource::Silicon,
+            Resource::Uranium,
+            Resource::Water,
+            Resource::Sand,
+        ];
+
         let storage_component = ComponentGroup::ResourceStorage {
-            component: ResourceStorageComponent::new(),
+            component: ResourceStorageComponent::new(storage_resources),
         };
 
         let mut components = HashMap::new();
@@ -503,13 +514,13 @@ impl Debug for Storage {
 }
 
 impl Storage {
-    pub fn new() -> Storage {
+    pub fn new(resources: Vec<Resource>, commodities: Vec<CommodityGroup>) -> Storage {
         let resource_storage_component = ComponentGroup::ResourceStorage {
-            component: ResourceStorageComponent::new(),
+            component: ResourceStorageComponent::new(resources),
         };
 
         let commodity_storage_component = ComponentGroup::CommodityStorage {
-            component: CommodityStorageComponent::new(),
+            component: CommodityStorageComponent::new(commodities),
         };
 
         let mut components = HashMap::new();
@@ -543,10 +554,11 @@ pub struct ResourceRequireFactory {}
 impl ResourceRequireFactory {
     fn energy_for_commodity(commodity: &CommodityGroup) -> u64 {
         match commodity {
-            CommodityGroup::MetalPlate => 45,
-            CommodityGroup::MetalPipe => 20,
-            CommodityGroup::Gravel => 40,
-            CommodityGroup::Fuel => 120,
+            CommodityGroup::Concrete => 45,
+            CommodityGroup::Fuel => 20,
+            CommodityGroup::Electronics => 40,
+            CommodityGroup::Glass => 120,
+            CommodityGroup::Spaceship => 20000,
         }
     }
 
@@ -554,18 +566,22 @@ impl ResourceRequireFactory {
         let mut requires = HashMap::new();
 
         match commodity {
-            CommodityGroup::MetalPlate => {
-                requires.insert(Resource::Metal, 15);
-            }
-            CommodityGroup::MetalPipe => {
-                requires.insert(Resource::Metal, 5);
-            }
-            CommodityGroup::Gravel => {
-                requires.insert(Resource::Mineral, 20);
+            CommodityGroup::Concrete => {
+                requires.insert(Resource::Sand, 15);
             }
             CommodityGroup::Fuel => {
-                requires.insert(Resource::Mineral, 5);
-                requires.insert(Resource::Carbon, 35);
+                requires.insert(Resource::Water, 35);
+            }
+            CommodityGroup::Electronics => {
+                requires.insert(Resource::Aluminum, 5);
+                requires.insert(Resource::Carbon, 10);
+                requires.insert(Resource::Silicon, 25);
+            }
+            CommodityGroup::Glass => {
+                requires.insert(Resource::Sand, 50);
+            }
+            CommodityGroup::Spaceship => {
+                requires.insert(Resource::Iron, 1000);
             }
         }
 

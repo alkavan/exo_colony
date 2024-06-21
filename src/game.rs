@@ -41,13 +41,31 @@ impl Display for Position {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Resource {
-    Metal,
-    Mineral,
-    Gas,
+    Iron,
+    Aluminum,
     Carbon,
+    Silicon,
+    Uranium,
+    Water,
+    Sand,
 }
 
 impl Display for Resource {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ManufacturedResource {
+    Food,
+    Steel,
+    Plastic,
+    Oxygen,
+    Gravel,
+}
+
+impl Display for ManufacturedResource {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "{:?}", self)
     }
@@ -197,7 +215,7 @@ impl GameMap {
 
         let rock_deposit_tile = TileFactory::tile(
             Flora::Rock,
-            Option::from(Resource::Mineral),
+            Option::from(Resource::Iron),
             vec![constraint!(nm.clone(), > 0.87)],
         );
 

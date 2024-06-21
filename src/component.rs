@@ -55,18 +55,14 @@ pub struct CommodityStorageComponent {
 }
 
 impl ResourceStorageComponent {
-    pub fn new() -> ResourceStorageComponent {
-        let mut capacity = HashMap::new();
-        capacity.insert(Resource::Metal, 1000);
-        capacity.insert(Resource::Mineral, 1000);
-        capacity.insert(Resource::Carbon, 1000);
-        capacity.insert(Resource::Gas, 1000);
-
+    pub fn new(items: Vec<Resource>) -> ResourceStorageComponent {
         let mut resources = HashMap::new();
-        resources.insert(Resource::Metal, 0);
-        resources.insert(Resource::Mineral, 0);
-        resources.insert(Resource::Carbon, 0);
-        resources.insert(Resource::Gas, 0);
+        let mut capacity = HashMap::new();
+
+        for resource in items {
+            resources.insert(resource, 0);
+            capacity.insert(resource, 1000);
+        }
 
         return ResourceStorageComponent {
             capacity,
@@ -106,18 +102,14 @@ impl CommodityOutputComponent {
 }
 
 impl CommodityStorageComponent {
-    pub fn new() -> CommodityStorageComponent {
-        let mut capacity = HashMap::new();
-        capacity.insert(CommodityGroup::Fuel, 1000);
-        capacity.insert(CommodityGroup::Gravel, 1000);
-        capacity.insert(CommodityGroup::MetalPlate, 1000);
-        capacity.insert(CommodityGroup::MetalPipe, 1000);
-
+    pub fn new(items: Vec<CommodityGroup>) -> CommodityStorageComponent {
         let mut commodities = HashMap::new();
-        commodities.insert(CommodityGroup::Fuel, 0);
-        commodities.insert(CommodityGroup::Gravel, 0);
-        commodities.insert(CommodityGroup::MetalPlate, 0);
-        commodities.insert(CommodityGroup::MetalPipe, 0);
+        let mut capacity = HashMap::new();
+
+        for commodity in items {
+            commodities.insert(commodity, 0);
+            capacity.insert(commodity, 1000);
+        }
 
         return CommodityStorageComponent {
             capacity,

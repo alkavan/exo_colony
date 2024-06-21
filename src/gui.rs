@@ -365,11 +365,11 @@ pub fn draw_stats_widget(
     )));
 
     // Resource list
-    items.push(ListItem::new("-[ Resources ]-"));
-    for (resource, amount) in storage.list_resources() {
+    items.push(ListItem::new(format!("{:-^30}", "[ Resources ]")));
+    for (resource, amount) in storage.resources() {
         let deficit = storage.get_resource_deficit(resource) as i64;
         let content = format!(
-            "{:>10}: {:>9} ({})",
+            "{:>12}: {:>9} ({})",
             resource.to_string(),
             amount,
             deficit.neg().to_string()
@@ -378,11 +378,11 @@ pub fn draw_stats_widget(
     }
 
     // Commodity list
-    items.push(ListItem::new("-[ Commodities ]-"));
-    for (commodity, amount) in storage.list_commodities() {
+    items.push(ListItem::new(format!("{:-^30}", "[ Commodities ]")));
+    for (commodity, amount) in storage.commodities() {
         let deficit = storage.get_commodity_deficit(commodity) as i64;
         let content = format!(
-            "{:>10}: {:>9} ({})",
+            "{:>12}: {:>9} ({})",
             commodity.to_string(),
             amount,
             deficit.neg().to_string()

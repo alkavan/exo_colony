@@ -8,6 +8,9 @@ use crate::structures::{
     BatteryTrait, CommodityGroup, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
 };
 
+use itertools::Itertools;
+use std::iter::FromIterator;
+
 pub struct EnergyManager {
     output: u64,
     stored: u64,
@@ -247,11 +250,16 @@ impl ResourceManager {
         };
     }
 
-    pub fn list_resources(&self) -> Iter<'_, Resource, u64> {
+    pub fn resource_types(&self) -> Vec<Resource> {
+        return Vec::from_iter(self.resources.keys().cloned());
+        // return vec![];
+    }
+
+    pub fn resources(&self) -> Iter<'_, Resource, u64> {
         return self.resources.iter();
     }
 
-    pub fn list_resources_mut(&mut self) -> IterMut<'_, Resource, u64> {
+    pub fn resources_mut(&mut self) -> IterMut<'_, Resource, u64> {
         return self.resources.iter_mut();
     }
 
@@ -290,11 +298,16 @@ impl ResourceManager {
         return self.resources_deficit.get(resource_type).unwrap().clone();
     }
 
-    pub fn list_commodities(&self) -> Iter<'_, CommodityGroup, u64> {
+    pub fn commodity_types(&self) -> Vec<CommodityGroup> {
+        return Vec::from_iter(self.commodities.keys().cloned());
+        // return vec![];
+    }
+
+    pub fn commodities(&self) -> Iter<'_, CommodityGroup, u64> {
         return self.commodities.iter();
     }
 
-    pub fn list_commodities_mut(&mut self) -> IterMut<'_, CommodityGroup, u64> {
+    pub fn commodities_mut(&mut self) -> IterMut<'_, CommodityGroup, u64> {
         return self.commodities.iter_mut();
     }
 
@@ -369,7 +382,7 @@ impl ResourceManager {
                 }
                 Structure::Base { .. } => {}
                 Structure::Storage { structure } => {
-                    for (resource, amount) in self.list_resources_mut() {
+                    for (resource, amount) in self.resources_mut() {
                         if *amount > 0 {
                             let amount_stored = structure
                                 .blueprint_mut()
