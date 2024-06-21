@@ -32,7 +32,7 @@ impl From<BlockType> for char {
             BlockType::Medium => '▓',
             BlockType::Light => '░',
             BlockType::Selected => '◆',
-            BlockType::Resource => 'R',
+            BlockType::Resource => '·',
         }
     }
 }
