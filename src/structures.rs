@@ -7,7 +7,9 @@ use crate::component::{
     BatteryComponent, CommodityOutputComponent, CommodityStorageComponent, ComponentGroup,
     ComponentName, EnergyComponent, ResourceOutputComponent, ResourceStorageComponent,
 };
-use crate::game::Resource;
+use crate::game::{Flora, MapTile, Resource};
+use crate::gui::MenuSelector;
+use crate::managers::ResourceManager;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
@@ -635,5 +637,73 @@ impl Factory {
 
     pub fn commodity(&self) -> &Commodity {
         return &self.commodity;
+    }
+}
+
+pub struct StructureFactory {}
+
+impl StructureFactory {
+    pub fn new(
+        group: &StructureGroup,
+        resource_manager: &ResourceManager,
+        resource_select: &dyn MenuSelector<Resource>,
+        commodity_select: &dyn MenuSelector<Commodity>,
+    ) -> Option<Structure> {
+        match group {
+            StructureGroup::Base => {
+                let structure = Structure::Base {
+                    structure: Base::new(),
+                };
+                Option::from(structure)
+            }
+            StructureGroup::Energy => {
+                let structure = Structure::PowerPlant {
+                    structure: PowerPlant::new(),
+                };
+                Option::from(structure)
+            }
+            StructureGroup::Mine => {
+                let structure = Structure::Mine {
+                    structure: Mine::new(resource_select.selected()),
+                };
+                Option::from(structure)
+            }
+            StructureGroup::Storage => {
+                let structure = Structure::Storage {
+                    structure: Storage::new(
+                        resource_manager.resource_types(),
+                        resource_manager.commodity_types(),
+                    ),
+                };
+                Option::from(structure)
+            }
+            StructureGroup::Factory => {
+                let structure = Structure::Factory {
+                    structure: { Factory::new(commodity_select.selected()) },
+                };
+                Option::from(structure)
+            }
+        }
+    }
+
+    pub fn allowed(group: &StructureGroup, tile: &MapTile) -> bool {
+        match group {
+            StructureGroup::Base => {
+                !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Grass)
+            }
+            StructureGroup::Energy => {
+                !tile.is_resource
+                    && (tile.flora == Flora::Sand
+                        || tile.flora == Flora::Grass
+                        || tile.flora == Flora::Water)
+            }
+            StructureGroup::Mine => tile.is_resource,
+            StructureGroup::Storage => {
+                !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Grass)
+            }
+            StructureGroup::Factory => {
+                !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Grass)
+            }
+        }
     }
 }

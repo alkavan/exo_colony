@@ -382,33 +382,56 @@ impl MapController {
         return self.objects.get(position);
     }
 
-    pub fn generate_deposits(&mut self) {
-        let cache = self.map().cache_copy();
+    pub fn position(&self) -> Position {
+        return self.position.clone();
+    }
 
-        for (y, row) in cache.iter().enumerate() {
-            for (x, tile) in row.iter().enumerate() {
-                let mut deposits = match tile.flora {
-                    Flora::Water => vec![Resource::Water, Resource::Carbon],
-                    Flora::Sand => vec![Resource::Silica],
-                    Flora::Dirt => vec![Resource::Iron, Resource::Aluminum],
-                    Flora::Grass => vec![Resource::Carbon, Resource::Water],
-                    Flora::Rock => vec![Resource::Uranium],
-                };
+    pub fn tile(&self) -> &MapTile {
+        let x = self.position.x as usize;
+        let y = self.position.y as usize;
 
-                if tile.is_resource {
-                    let resource = ResourceFactory::random_resource(deposits.as_mut());
-                    let amount = ResourceFactory::random_resource_amount(resource);
-                    // TODO: make amount random in range
-                    let deposit = ResourceDeposit::new(resource, amount);
+        return &self.map.cache[y][x];
+    }
 
-                    let object = MapObject {
-                        structure: Option::None,
-                        deposit: Option::from(deposit),
-                    };
+    pub fn tile_at(&self, position: &Position) -> &MapTile {
+        let x = position.x as usize;
+        let y = position.y as usize;
 
-                    self.add_object(Position::new(x as i16, y as i16), object);
-                }
-            }
+        return &self.map.cache[y][x];
+    }
+
+    pub fn tile_at_mut(&mut self, position: Position) -> &mut MapTile {
+        let x = position.x as usize;
+        let y = position.y as usize;
+
+        return &mut self.map.cache[y][x];
+    }
+
+    pub fn up(&mut self) {
+        let y = self.position.y as u16;
+        if y > 0 {
+            self.position.y((y - 1) as i16);
+        }
+    }
+
+    pub fn down(&mut self) {
+        let y = self.position.y as u16;
+        if y < self.map.height() - 1 {
+            self.position.y((y + 1) as i16);
+        }
+    }
+
+    pub fn right(&mut self) {
+        let x = self.position.x as u16;
+        if x < self.map.width() - 1 {
+            self.position.x((x + 1) as i16);
+        }
+    }
+
+    pub fn left(&mut self) {
+        let x = self.position.x as u16;
+        if x > 0 {
+            self.position.x((x - 1) as i16);
         }
     }
 
@@ -448,56 +471,33 @@ impl MapController {
         self.add_object(position, object);
     }
 
-    pub fn position(&self) -> Position {
-        return self.position.clone();
-    }
+    pub fn generate_deposits(&mut self) {
+        let cache = self.map().cache_copy();
 
-    pub fn tile(&self) -> &MapTile {
-        let x = self.position.x as usize;
-        let y = self.position.y as usize;
+        for (y, row) in cache.iter().enumerate() {
+            for (x, tile) in row.iter().enumerate() {
+                let mut deposits = match tile.flora {
+                    Flora::Water => vec![Resource::Water, Resource::Carbon],
+                    Flora::Sand => vec![Resource::Silica],
+                    Flora::Dirt => vec![Resource::Iron, Resource::Aluminum],
+                    Flora::Grass => vec![Resource::Carbon, Resource::Water],
+                    Flora::Rock => vec![Resource::Uranium],
+                };
 
-        return &self.map.cache[y][x];
-    }
+                if tile.is_resource {
+                    let resource = ResourceFactory::random_resource(deposits.as_mut());
+                    let amount = ResourceFactory::random_resource_amount(resource);
+                    // TODO: make amount random in range
+                    let deposit = ResourceDeposit::new(resource, amount);
 
-    pub fn tile_at(&self, position: Position) -> &MapTile {
-        let x = position.x as usize;
-        let y = position.y as usize;
+                    let object = MapObject {
+                        structure: Option::None,
+                        deposit: Option::from(deposit),
+                    };
 
-        return &self.map.cache[y][x];
-    }
-
-    pub fn tile_at_mut(&mut self, position: Position) -> &mut MapTile {
-        let x = position.x as usize;
-        let y = position.y as usize;
-
-        return &mut self.map.cache[y][x];
-    }
-
-    pub fn up(&mut self) {
-        let y = self.position.y as u16;
-        if y > 0 {
-            self.position.y((y - 1) as i16);
-        }
-    }
-
-    pub fn down(&mut self) {
-        let y = self.position.y as u16;
-        if y < self.map.height() - 1 {
-            self.position.y((y + 1) as i16);
-        }
-    }
-
-    pub fn right(&mut self) {
-        let x = self.position.x as u16;
-        if x < self.map.width() - 1 {
-            self.position.x((x + 1) as i16);
-        }
-    }
-
-    pub fn left(&mut self) {
-        let x = self.position.x as u16;
-        if x > 0 {
-            self.position.x((x - 1) as i16);
+                    self.add_object(Position::new(x as i16, y as i16), object);
+                }
+            }
         }
     }
 }

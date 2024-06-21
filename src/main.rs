@@ -27,8 +27,7 @@ use worldgen::world::Size;
 use crate::game::{MapController, Resource};
 use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
 use crate::managers::{EnergyManager, ResourceManager};
-use crate::structures::{Base, Commodity, Factory, Storage};
-use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
+use crate::structures::{Commodity, StructureFactory, StructureGroup};
 
 use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
@@ -217,30 +216,21 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     controller.left();
                                 }
                                 KeyCode::Enter => {
-                                    let structure = match menu.selected() {
-                                        StructureGroup::Base => Structure::Base {
-                                            structure: Base::new(),
-                                        },
-                                        StructureGroup::Energy => Structure::PowerPlant {
-                                            structure: PowerPlant::new(),
-                                        },
-                                        StructureGroup::Mine => Structure::Mine {
-                                            structure: Mine::new(resource_select.selected()),
-                                        },
-                                        StructureGroup::Storage => Structure::Storage {
-                                            structure: Storage::new(
-                                                resource_manager.resource_types(),
-                                                resource_manager.commodity_types(),
-                                            ),
-                                        },
-                                        StructureGroup::Factory => Structure::Factory {
-                                            structure: {
-                                                Factory::new(commodity_select.selected())
-                                            },
-                                        },
-                                    };
+                                    let structure_group = menu.selected();
+                                    let tile = controller.tile();
 
-                                    controller.add_structure(structure);
+                                    if StructureFactory::allowed(&structure_group, tile) {
+                                        let structure = StructureFactory::new(
+                                            &structure_group,
+                                            &resource_manager,
+                                            &resource_select,
+                                            &commodity_select,
+                                        );
+
+                                        if structure.is_some() {
+                                            controller.add_structure(structure.unwrap());
+                                        }
+                                    }
                                 }
                                 KeyCode::Right => {
                                     controller.right();
