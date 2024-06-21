@@ -271,7 +271,7 @@ pub fn draw_stats_widget(
     items.push(ListItem::new("------------------"));
 
     for (resource, amount) in storage.list() {
-        let content = format!("{}: {}", resource, amount);
+        let content = format!("{:>10}: {}", resource.to_string(), amount);
         items.push(ListItem::new(content));
     }
 
