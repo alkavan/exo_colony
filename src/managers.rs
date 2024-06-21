@@ -8,7 +8,6 @@ use crate::structures::{
     BatteryTrait, Commodity, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
 };
 
-use itertools::Itertools;
 use std::iter::FromIterator;
 
 pub struct EnergyManager {

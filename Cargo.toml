@@ -10,7 +10,7 @@ description = "A real-time simulation game about building a colony on an exo-pla
 [dependencies]
 crossterm = "0.19"
 tui = { version = "0.14", default-features = false, features = ['crossterm'] }
-rand = "0.7.3"
+rand = "0.8.3"
 chrono = "0.4"
 itertools = "0.10"
 worldgen = "0.5.3"

@@ -352,13 +352,9 @@ pub fn draw_stats_widget(
 
     let mut items = vec![ListItem::new(time.clone())];
 
-    let position_content = format!("Position: ({}, {})", position.x, position.y);
-    items.push(ListItem::new(position_content));
-
     // Energy list
-    items.push(ListItem::new("-[ Energy ]-"));
     items.push(ListItem::new(format!(
-        "(output: {}) (stored: {}) (deficit: {})",
+        "Energy [output: {:<7}] [stored: {:<7}] [deficit: {:<7}]",
         energy.output().to_string(),
         energy.stored().to_string(),
         (energy.deficit() as i64).neg().to_string()
@@ -504,14 +500,15 @@ pub fn draw_info_widget(
     let block = build_container_block("Info".to_string());
 
     let mut items = vec![
-        ListItem::new(format!("Tile({}, {}):", position.x, position.y)),
+        ListItem::new(format!("Position: ({}, {})", position.x, position.y)),
         ListItem::new(format!("Flora: {}", tile.flora.to_string())),
     ];
 
-    if tile.resource.is_some() {
+    if tile.is_resource {
+        let deposit = object.unwrap().deposit.unwrap();
         items.push(ListItem::new(format!(
-            "Resource: {}",
-            tile.resource.unwrap().to_string()
+            "Resource: {} ({}/{})",
+            deposit.resource, deposit.available, deposit.amount
         )));
     }
 

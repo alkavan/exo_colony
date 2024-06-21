@@ -9,6 +9,8 @@ use worldgen::world::tile::ConstraintType;
 use worldgen::world::{Size, Tile, World};
 
 use crate::structures::{Structure, StructureGroup};
+use rand::prelude::SliceRandom;
+use rand::Rng;
 use std::iter::FromIterator;
 
 type WorldCache = Vec<Vec<MapTile>>;
@@ -44,10 +46,9 @@ pub enum Resource {
     Iron,
     Aluminum,
     Carbon,
-    Silicon,
+    Silica,
     Uranium,
     Water,
-    Sand,
 }
 
 impl Display for Resource {
@@ -58,11 +59,13 @@ impl Display for Resource {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ManufacturedResource {
+    Silicon,
     Food,
     Steel,
-    Plastic,
+    BioPlastic,
     Oxygen,
     Gravel,
+    Hydrogen,
 }
 
 impl Display for ManufacturedResource {
@@ -71,15 +74,46 @@ impl Display for ManufacturedResource {
     }
 }
 
+pub struct ResourceFactory {}
+
+impl ResourceFactory {
+    fn random_resource(resources: &mut Vec<Resource>) -> Resource {
+        let mut rng = rand::thread_rng();
+        resources.shuffle(&mut rng);
+        resources.get(0).unwrap().clone()
+    }
+
+    fn random_amount(from: u64, to: u64) -> u64 {
+        let mut rng = rand::thread_rng();
+        rng.gen_range(from..to)
+    }
+
+    fn random_resource_amount(resource: Resource) -> u64 {
+        match resource {
+            Resource::Iron => Self::random_amount(10000, 25000),
+            Resource::Aluminum => Self::random_amount(10000, 25000),
+            Resource::Carbon => Self::random_amount(5000, 15000),
+            Resource::Silica => Self::random_amount(5000, 15000),
+            Resource::Uranium => Self::random_amount(3000, 6000),
+            Resource::Water => Self::random_amount(18000, 22000),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct ResourceDeposit {
-    resource: Resource,
-    amount: u64,
+    pub resource: Resource,
+    pub amount: u64,
+    pub available: u64,
 }
 
 impl ResourceDeposit {
     pub fn new(resource: Resource, amount: u64) -> ResourceDeposit {
-        return ResourceDeposit { resource, amount };
+        return ResourceDeposit {
+            resource,
+            amount,
+            available: amount,
+        };
     }
 }
 
@@ -101,7 +135,7 @@ impl Display for Flora {
 #[derive(Clone)]
 pub struct MapTile {
     pub flora: Flora,
-    pub resource: Option<Resource>,
+    pub is_resource: bool,
 }
 
 pub struct MapObject {
@@ -151,12 +185,8 @@ impl ObjectManager {
 pub struct TileFactory {}
 
 impl TileFactory {
-    pub fn tile(
-        flora: Flora,
-        resource: Option<Resource>,
-        constraints: Vec<Constraint>,
-    ) -> Tile<MapTile> {
-        let mut tile = Tile::new(MapTile { flora, resource });
+    pub fn tile(flora: Flora, is_resource: bool, constraints: Vec<Constraint>) -> Tile<MapTile> {
+        let mut tile = Tile::new(MapTile { flora, is_resource });
 
         for constraint in constraints {
             tile = tile.when(constraint);
@@ -187,50 +217,80 @@ impl GameMap {
 
         let nm = Box::new(nm1 + (nm2 * 4));
 
-        let water_tile = TileFactory::tile(
-            Flora::Water,
-            Option::None,
-            vec![constraint!(nm.clone(), < -0.25)],
-        );
-        let sand_tile = TileFactory::tile(
-            Flora::Sand,
-            Option::None,
-            vec![constraint!(nm.clone(), < 0.0)],
-        );
-        let grass_tile = TileFactory::tile(
-            Flora::Grass,
-            Option::None,
-            vec![constraint!(nm.clone(), < 0.45)],
-        );
-        let dirt_tile = TileFactory::tile(Flora::Dirt, Option::None, vec![]);
+        // Water
+        let water_tile =
+            TileFactory::tile(Flora::Water, false, vec![constraint!(nm.clone(), < -0.25)]);
 
-        let rock_tile = TileFactory::tile(
-            Flora::Rock,
-            Option::None,
+        let water_deposit_tile = TileFactory::tile(
+            Flora::Water,
+            true,
             vec![
-                constraint!(nm.clone(), > 0.8),
-                constraint!(nm.clone(), < 0.88),
+                constraint!(nm.clone(), < -0.57),
+                constraint!(nm.clone(), > -0.6),
             ],
         );
 
+        // Sand
+        let sand_tile = TileFactory::tile(Flora::Sand, false, vec![constraint!(nm.clone(), < 0.0)]);
+
+        let sand_deposit_tile = TileFactory::tile(
+            Flora::Sand,
+            true,
+            vec![
+                constraint!(nm.clone(), < -0.05),
+                constraint!(nm.clone(), > -0.07),
+            ],
+        );
+
+        // Grass
+        let grass_tile =
+            TileFactory::tile(Flora::Grass, false, vec![constraint!(nm.clone(), < 0.45)]);
+
+        let grass_deposit_tile = TileFactory::tile(
+            Flora::Grass,
+            true,
+            vec![
+                constraint!(nm.clone(), < 0.3),
+                constraint!(nm.clone(), > 0.27),
+            ],
+        );
+
+        // Mountains
+        let rock_tile =
+            TileFactory::tile(Flora::Rock, false, vec![constraint!(nm.clone(), > 0.85)]);
+
         let rock_deposit_tile = TileFactory::tile(
             Flora::Rock,
-            Option::from(Resource::Iron),
-            vec![constraint!(nm.clone(), > 0.87)],
+            true,
+            vec![
+                constraint!(nm.clone(), < 0.88),
+                constraint!(nm.clone(), > 0.86),
+            ],
+        );
+
+        // Hills
+        let dirt_tile = TileFactory::tile(Flora::Dirt, false, vec![]);
+
+        let dirt_deposit_tile = TileFactory::tile(
+            Flora::Dirt,
+            true,
+            vec![
+                constraint!(nm.clone(), < 0.6),
+                constraint!(nm.clone(), > 0.56),
+            ],
         );
 
         let world = World::new()
             .set(Size::of(width as i64, height as i64))
-            // Water
+            .add(water_deposit_tile)
             .add(water_tile)
-            // Sand
+            .add(sand_deposit_tile)
             .add(sand_tile)
-            // Grass
+            .add(grass_deposit_tile)
             .add(grass_tile)
-            // Mountains
-            .add(rock_tile)
             .add(rock_deposit_tile)
-            // Hills
+            .add(rock_tile)
+            .add(dirt_deposit_tile)
             .add(dirt_tile);
 
         let cache = world.generate(0, 0).unwrap();
@@ -327,9 +387,19 @@ impl MapController {
 
         for (y, row) in cache.iter().enumerate() {
             for (x, tile) in row.iter().enumerate() {
-                if tile.resource.is_some() {
+                let mut deposits = match tile.flora {
+                    Flora::Water => vec![Resource::Water, Resource::Carbon],
+                    Flora::Sand => vec![Resource::Silica],
+                    Flora::Dirt => vec![Resource::Iron, Resource::Aluminum],
+                    Flora::Grass => vec![Resource::Carbon, Resource::Water],
+                    Flora::Rock => vec![Resource::Uranium],
+                };
+
+                if tile.is_resource {
+                    let resource = ResourceFactory::random_resource(deposits.as_mut());
+                    let amount = ResourceFactory::random_resource_amount(resource);
                     // TODO: make amount random in range
-                    let deposit = ResourceDeposit::new(tile.resource.unwrap(), 1000);
+                    let deposit = ResourceDeposit::new(resource, amount);
 
                     let object = MapObject {
                         structure: Option::None,

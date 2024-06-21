@@ -60,10 +60,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         Resource::Iron,
         Resource::Aluminum,
         Resource::Carbon,
-        Resource::Silicon,
+        Resource::Silica,
         Resource::Uranium,
         Resource::Water,
-        Resource::Sand,
     ];
 
     let storage_commodities = vec![
@@ -87,10 +86,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         Resource::Iron,
         Resource::Aluminum,
         Resource::Carbon,
-        Resource::Silicon,
+        Resource::Silica,
         Resource::Uranium,
         Resource::Water,
-        Resource::Sand,
     ]);
 
     let mut commodity_select = FactoryCommoditySelect::new(vec![

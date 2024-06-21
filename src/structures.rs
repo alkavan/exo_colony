@@ -1,8 +1,6 @@
-use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::Hash;
-use std::iter::FromIterator;
 use std::ops::{AddAssign, Sub, SubAssign};
 
 use crate::component::{
@@ -32,7 +30,6 @@ pub enum Commodity {
     Electronics,
     Fuel,
     Glass,
-    Spaceship,
 }
 
 impl Display for Commodity {
@@ -384,10 +381,9 @@ impl Base {
             Resource::Iron,
             Resource::Aluminum,
             Resource::Carbon,
-            Resource::Silicon,
+            Resource::Silica,
             Resource::Uranium,
             Resource::Water,
-            Resource::Sand,
         ];
 
         let storage_component = ComponentGroup::ResourceStorage {
@@ -558,7 +554,6 @@ impl ResourceRequireFactory {
             Commodity::Fuel => 20,
             Commodity::Electronics => 40,
             Commodity::Glass => 120,
-            Commodity::Spaceship => 20000,
         }
     }
 
@@ -567,7 +562,7 @@ impl ResourceRequireFactory {
 
         match commodity {
             Commodity::Concrete => {
-                requires.insert(Resource::Sand, 15);
+                requires.insert(Resource::Silica, 15);
             }
             Commodity::Fuel => {
                 requires.insert(Resource::Water, 35);
@@ -575,13 +570,10 @@ impl ResourceRequireFactory {
             Commodity::Electronics => {
                 requires.insert(Resource::Aluminum, 5);
                 requires.insert(Resource::Carbon, 10);
-                requires.insert(Resource::Silicon, 25);
+                requires.insert(Resource::Silica, 25);
             }
             Commodity::Glass => {
-                requires.insert(Resource::Sand, 50);
-            }
-            Commodity::Spaceship => {
-                requires.insert(Resource::Iron, 1000);
+                requires.insert(Resource::Silica, 50);
             }
         }
 
