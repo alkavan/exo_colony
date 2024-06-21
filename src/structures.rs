@@ -434,6 +434,10 @@ impl PowerPlant {
     pub fn blueprint(&self) -> &StructureBlueprint {
         return &self.blueprint;
     }
+
+    pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
+        return &mut self.blueprint;
+    }
 }
 
 // Mine
@@ -477,6 +481,11 @@ impl Mine {
     pub fn blueprint(&self) -> &StructureBlueprint {
         return &self.blueprint;
     }
+
+    pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
+        return &mut self.blueprint;
+    }
+
     pub fn resource(&self) -> &Resource {
         return &self.resource;
     }
@@ -611,6 +620,11 @@ impl Factory {
     pub fn blueprint(&self) -> &StructureBlueprint {
         return &self.blueprint;
     }
+
+    pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
+        return &mut self.blueprint;
+    }
+
     pub fn commodity(&self) -> &CommodityGroup {
         return &self.commodity;
     }
