@@ -365,14 +365,26 @@ pub fn draw_stats_widget(
     // Resource list
     items.push(ListItem::new("-[ Resources ]-"));
     for (resource, amount) in storage.list_resources() {
-        let content = format!("{:>10}: {}", resource.to_string(), amount);
+        let deficit = storage.get_resource_deficit(resource) as i64;
+        let content = format!(
+            "{:>10}: {:>9} ({})",
+            resource.to_string(),
+            amount,
+            deficit.neg().to_string()
+        );
         items.push(ListItem::new(content));
     }
 
     // Commodity list
     items.push(ListItem::new("-[ Commodities ]-"));
     for (commodity, amount) in storage.list_commodities() {
-        let content = format!("{:>10}: {}", commodity.to_string(), amount);
+        let deficit = storage.get_commodity_deficit(commodity) as i64;
+        let content = format!(
+            "{:>10}: {:>9} ({})",
+            commodity.to_string(),
+            amount,
+            deficit.neg().to_string()
+        );
         items.push(ListItem::new(content));
     }
 

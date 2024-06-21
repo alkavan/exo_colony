@@ -72,7 +72,9 @@ impl Display for Flora {
 
 pub struct ResourceManager {
     resources: HashMap<ResourceGroup, u64>,
+    resources_deficit: HashMap<ResourceGroup, u64>,
     commodities: HashMap<CommodityGroup, u64>,
+    commodities_deficit: HashMap<CommodityGroup, u64>,
 }
 
 impl ResourceManager {
@@ -85,14 +87,26 @@ impl ResourceManager {
             resources.insert(resource_type, 0);
         }
 
+        let mut resources_deficit: HashMap<ResourceGroup, u64> = HashMap::new();
+        for resource_type in resources.keys().copied().collect::<Vec<_>>() {
+            resources_deficit.insert(resource_type, 0);
+        }
+
         let mut commodities: HashMap<CommodityGroup, u64> = HashMap::new();
         for commodity_type in commodity_types {
             commodities.insert(commodity_type, 0);
         }
 
+        let mut commodities_deficit: HashMap<CommodityGroup, u64> = HashMap::new();
+        for commodity_type in commodities.keys().copied().collect::<Vec<_>>() {
+            commodities_deficit.insert(commodity_type, 0);
+        }
+
         return ResourceManager {
             resources,
+            resources_deficit,
             commodities,
+            commodities_deficit,
         };
     }
 
@@ -126,6 +140,17 @@ impl ResourceManager {
         return amount;
     }
 
+    fn deficit_resource(&mut self, resource_type: &ResourceGroup, amount: u64) {
+        self.resources_deficit
+            .get_mut(&resource_type)
+            .unwrap()
+            .add_assign(amount)
+    }
+
+    pub fn get_resource_deficit(&self, resource_type: &ResourceGroup) -> u64 {
+        return self.resources_deficit.get(resource_type).unwrap().clone();
+    }
+
     pub fn list_commodities(&self) -> Iter<'_, CommodityGroup, u64> {
         return self.commodities.iter();
     }
@@ -152,11 +177,34 @@ impl ResourceManager {
         return true;
     }
 
+    fn deficit_commodity(&mut self, resource_type: &CommodityGroup, amount: u64) {
+        self.commodities_deficit
+            .get_mut(&resource_type)
+            .unwrap()
+            .add_assign(amount)
+    }
+
+    pub fn get_commodity_deficit(&self, resource_type: &CommodityGroup) -> u64 {
+        return self.commodities_deficit.get(resource_type).unwrap().clone();
+    }
+
+    fn zero_deficit(&mut self) {
+        for (_, deficit) in self.resources_deficit.iter_mut() {
+            *deficit = 0;
+        }
+
+        for (_, deficit) in self.commodities_deficit.iter_mut() {
+            *deficit = 0;
+        }
+    }
+
     pub fn collect(
         &mut self,
         objects: IterMut<Position, MapObject>,
         energy_manager: &mut EnergyManager,
     ) {
+        self.zero_deficit();
+
         for (_, object) in objects {
             // let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
             let structure = object.structure.as_mut().unwrap();
@@ -166,15 +214,16 @@ impl ResourceManager {
                 Structure::Mine { structure } => {
                     let energy_required = structure.blueprint().energy_in();
                     let energy_available = energy_manager.withdraw(energy_required);
+                    let resource = structure.resource();
 
                     if energy_available >= energy_required {
-                        self.deposit_resource(
-                            structure.resource(),
-                            structure.blueprint().resource_out(),
-                        );
+                        // resource mined.
+                        self.deposit_resource(resource, structure.blueprint().resource_out());
                     } else {
+                        // resource not mined due to missing energy.
                         let deficit = energy_required - energy_available;
                         energy_manager.deposit_deficit(deficit);
+                        self.deficit_resource(resource, structure.blueprint().resource_out());
                     }
                 }
                 Structure::Base { structure } => {}

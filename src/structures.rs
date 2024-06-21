@@ -21,7 +21,7 @@ impl Display for StructureGroup {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum CommodityGroup {
     MetalPlate,
     MetalPipe,
