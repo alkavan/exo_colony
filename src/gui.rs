@@ -445,7 +445,7 @@ pub fn draw_stats_widget(
     for (resource, amount) in storage.resources() {
         let deficit = storage.get_resource_deficit(resource) as i64;
         let content = format!(
-            "{:>12}: {:>9} ({})",
+            "{:>14}: {:>9} ({})",
             resource.to_string(),
             amount,
             deficit.neg().to_string()
@@ -458,7 +458,7 @@ pub fn draw_stats_widget(
     for (commodity, amount) in storage.commodities() {
         let deficit = storage.get_commodity_deficit(commodity) as i64;
         let content = format!(
-            "{:>12}: {:>9} ({})",
+            "{:>14}: {:>9} ({})",
             commodity.to_string(),
             amount,
             deficit.neg().to_string()

@@ -66,14 +66,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         Resource::Water,
     ];
 
+    let storage_manufactured = vec![
+        Manufactured::Silicon,
+        Manufactured::Food,
+        Manufactured::Steel,
+        Manufactured::BioPlastic,
+        Manufactured::Oxygen,
+        Manufactured::Gravel,
+        Manufactured::Hydrogen,
+        Manufactured::FuelPellet,
+    ];
+
     let storage_commodities = vec![
         Commodity::Concrete,
         Commodity::Semiconductor,
         Commodity::Fuel,
         Commodity::Glass,
+        Commodity::FuelRod,
     ];
 
-    let mut resource_manager = ResourceManager::new(storage_resources, storage_commodities);
+    let mut resource_manager =
+        ResourceManager::new(storage_resources, storage_manufactured, storage_commodities);
 
     let mut menu = Menu::new(vec![
         StructureGroup::Base,

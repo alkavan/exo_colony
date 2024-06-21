@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::ops::{AddAssign, SubAssign};
 
 use crate::component::{ComponentGroup, ComponentName};
-use crate::game::{Commodity, MapObject, Position, Resource};
+use crate::game::{Commodity, Manufactured, MapObject, Position, Resource};
 use crate::structures::{
-    BatteryTrait, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
+    BatteryTrait, EnergyTrait, MineOutputTrait, ResourceStorageTrait, Structure,
 };
 
 use std::iter::FromIterator;
@@ -205,12 +205,18 @@ impl EnergyManager {
 pub struct ResourceManager {
     resources: HashMap<Resource, u64>,
     resources_deficit: HashMap<Resource, u64>,
+    manufactured: HashMap<Manufactured, u64>,
+    manufactured_deficit: HashMap<Manufactured, u64>,
     commodities: HashMap<Commodity, u64>,
     commodities_deficit: HashMap<Commodity, u64>,
 }
 
 impl ResourceManager {
-    pub fn new(resource_types: Vec<Resource>, commodity_types: Vec<Commodity>) -> ResourceManager {
+    pub fn new(
+        resource_types: Vec<Resource>,
+        manufactured_types: Vec<Manufactured>,
+        commodity_types: Vec<Commodity>,
+    ) -> ResourceManager {
         let mut resources: HashMap<Resource, u64> = HashMap::new();
         for resource_type in resource_types {
             resources.insert(resource_type, 0);
@@ -219,6 +225,16 @@ impl ResourceManager {
         let mut resources_deficit: HashMap<Resource, u64> = HashMap::new();
         for resource_type in resources.keys().copied().collect::<Vec<_>>() {
             resources_deficit.insert(resource_type, 0);
+        }
+
+        let mut manufactured: HashMap<Manufactured, u64> = HashMap::new();
+        for manufactured_type in manufactured_types {
+            manufactured.insert(manufactured_type, 0);
+        }
+
+        let mut manufactured_deficit: HashMap<Manufactured, u64> = HashMap::new();
+        for manufactured_type in manufactured.keys().copied().collect::<Vec<_>>() {
+            manufactured_deficit.insert(manufactured_type, 0);
         }
 
         let mut commodities: HashMap<Commodity, u64> = HashMap::new();
@@ -234,6 +250,8 @@ impl ResourceManager {
         return ResourceManager {
             resources,
             resources_deficit,
+            manufactured,
+            manufactured_deficit,
             commodities,
             commodities_deficit,
         };
@@ -241,7 +259,6 @@ impl ResourceManager {
 
     pub fn resource_types(&self) -> Vec<Resource> {
         return Vec::from_iter(self.resources.keys().cloned());
-        // return vec![];
     }
 
     pub fn resources(&self) -> Iter<'_, Resource, u64> {
@@ -287,9 +304,59 @@ impl ResourceManager {
         return self.resources_deficit.get(resource_type).unwrap().clone();
     }
 
+    pub fn manufactured_types(&self) -> Vec<Manufactured> {
+        return Vec::from_iter(self.manufactured.keys().cloned());
+    }
+
+    pub fn manufactured(&self) -> Iter<'_, Manufactured, u64> {
+        return self.manufactured.iter();
+    }
+
+    pub fn manufactured_mut(&mut self) -> IterMut<'_, Manufactured, u64> {
+        return self.manufactured.iter_mut();
+    }
+
+    pub fn has_manufactured(&self, manufactured_type: &Manufactured, amount: u64) -> bool {
+        let available = self.manufactured.get(manufactured_type).unwrap();
+        return *available > amount;
+    }
+
+    pub fn deposit_manufactured(&mut self, manufactured_type: &Manufactured, amount: u64) -> u64 {
+        let stored = self.manufactured.get_mut(&manufactured_type).unwrap();
+        stored.add_assign(amount);
+        return stored.clone();
+    }
+
+    pub fn withdraw_manufactured(&mut self, manufactured_type: &Manufactured, amount: u64) -> u64 {
+        let stored = self.manufactured.get_mut(&manufactured_type).unwrap();
+
+        if amount > *stored {
+            let available = stored.clone();
+            stored.sub_assign(available);
+            return available;
+        }
+
+        stored.sub_assign(amount);
+        return amount;
+    }
+
+    fn add_manufactured_deficit(&mut self, manufactured_type: &Manufactured, amount: u64) {
+        self.manufactured_deficit
+            .get_mut(&manufactured_type)
+            .unwrap()
+            .add_assign(amount)
+    }
+
+    pub fn get_manufactured_deficit(&self, manufactured_type: &Manufactured) -> u64 {
+        return self
+            .manufactured_deficit
+            .get(manufactured_type)
+            .unwrap()
+            .clone();
+    }
+
     pub fn commodity_types(&self) -> Vec<Commodity> {
         return Vec::from_iter(self.commodities.keys().cloned());
-        // return vec![];
     }
 
     pub fn commodities(&self) -> Iter<'_, Commodity, u64> {
@@ -357,15 +424,25 @@ impl ResourceManager {
                 Structure::Mine { structure } => {
                     let energy_required = structure.blueprint().energy_in();
                     let resource = structure.resource();
+                    let manufactured = structure.manufactured();
 
                     if energy_manager.has_energy(energy_required) {
                         // resource mined.
                         energy_manager.withdraw(energy_required);
+
                         self.deposit_resource(resource, structure.blueprint().resource_out());
+                        self.deposit_manufactured(
+                            manufactured,
+                            structure.blueprint().manufactured_out(),
+                        );
                     } else {
                         // resource not mined due to missing energy.
                         energy_manager.add_deficit(energy_required);
                         self.add_resource_deficit(resource, structure.blueprint().resource_out());
+                        self.add_manufactured_deficit(
+                            manufactured,
+                            structure.blueprint().manufactured_out(),
+                        );
                     }
                 }
                 Structure::Refinery { .. } => {

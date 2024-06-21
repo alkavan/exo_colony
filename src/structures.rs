@@ -39,8 +39,9 @@ pub trait BatteryTrait {
     fn discharge(&mut self, amount: u64) -> u64;
 }
 
-pub trait ResourceOutputTrait {
+pub trait MineOutputTrait {
     fn resource_out(&self) -> u64;
+    fn manufactured_out(&self) -> u64;
 }
 
 pub trait ResourceStorageTrait {
@@ -226,12 +227,24 @@ impl BatteryTrait for StructureBlueprint {
     }
 }
 
-impl ResourceOutputTrait for StructureBlueprint {
+impl MineOutputTrait for StructureBlueprint {
     fn resource_out(&self) -> u64 {
         match self.get_component(&ComponentName::MineOutputComponent) {
             ComponentGroup::MineOutput {
-                component: MineOutputComponent { resource_out },
+                component: MineOutputComponent { resource_out, .. },
             } => *resource_out,
+            _ => 0,
+        }
+    }
+
+    fn manufactured_out(&self) -> u64 {
+        match self.get_component(&ComponentName::MineOutputComponent) {
+            ComponentGroup::MineOutput {
+                component:
+                    MineOutputComponent {
+                        manufactured_out, ..
+                    },
+            } => *manufactured_out,
             _ => 0,
         }
     }
@@ -442,6 +455,7 @@ impl PowerPlant {
 pub struct Mine {
     blueprint: StructureBlueprint,
     resource: Resource,
+    manufactured: Manufactured,
 }
 
 impl Debug for Mine {
@@ -460,7 +474,10 @@ impl Mine {
         };
 
         let resource_component = ComponentGroup::MineOutput {
-            component: MineOutputComponent { resource_out: 1 },
+            component: MineOutputComponent {
+                resource_out: 1,
+                manufactured_out: 1,
+            },
         };
 
         let mut components = HashMap::new();
@@ -468,11 +485,14 @@ impl Mine {
         components.insert(ComponentName::EnergyComponent, energy_component);
         components.insert(ComponentName::MineOutputComponent, resource_component);
 
+        let manufactured = Manufactured::Gravel;
+
         let blueprint = StructureBlueprint { components };
 
         return Mine {
             blueprint,
             resource,
+            manufactured,
         };
     }
 
@@ -486,6 +506,10 @@ impl Mine {
 
     pub fn resource(&self) -> &Resource {
         return &self.resource;
+    }
+
+    pub fn manufactured(&self) -> &Manufactured {
+        return &self.manufactured;
     }
 }
 

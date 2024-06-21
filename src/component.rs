@@ -39,6 +39,7 @@ pub struct BatteryComponent {
 
 pub struct MineOutputComponent {
     pub resource_out: u64,
+    pub manufactured_out: u64,
 }
 
 pub struct RefineryOutputComponent {
