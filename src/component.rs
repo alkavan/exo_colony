@@ -1,5 +1,5 @@
 use crate::game::Resource;
-use crate::structures::CommodityGroup;
+use crate::structures::Commodity;
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -50,8 +50,8 @@ pub struct CommodityOutputComponent {
 }
 
 pub struct CommodityStorageComponent {
-    pub capacity: HashMap<CommodityGroup, u64>,
-    pub commodities: HashMap<CommodityGroup, u64>,
+    pub capacity: HashMap<Commodity, u64>,
+    pub commodities: HashMap<Commodity, u64>,
 }
 
 impl ResourceStorageComponent {
@@ -102,7 +102,7 @@ impl CommodityOutputComponent {
 }
 
 impl CommodityStorageComponent {
-    pub fn new(items: Vec<CommodityGroup>) -> CommodityStorageComponent {
+    pub fn new(items: Vec<Commodity>) -> CommodityStorageComponent {
         let mut commodities = HashMap::new();
         let mut capacity = HashMap::new();
 
@@ -117,27 +117,27 @@ impl CommodityStorageComponent {
         };
     }
 
-    pub fn capacity(&self, group: &CommodityGroup) -> u64 {
+    pub fn capacity(&self, group: &Commodity) -> u64 {
         return self.capacity[&group];
     }
 
-    pub fn capacity_free(&self, group: &CommodityGroup) -> u64 {
+    pub fn capacity_free(&self, group: &Commodity) -> u64 {
         return self.capacity[&group] - self.commodities[&group];
     }
 
-    pub fn commodity(&self, group: &CommodityGroup) -> u64 {
+    pub fn commodity(&self, group: &Commodity) -> u64 {
         return self.commodities[&group];
     }
 
-    pub fn commodity_mut(&mut self, group: &CommodityGroup) -> &mut u64 {
+    pub fn commodity_mut(&mut self, group: &Commodity) -> &mut u64 {
         return self.commodities.get_mut(&group).unwrap();
     }
 
-    pub fn commodity_add(&mut self, group: &CommodityGroup, amount: u64) {
+    pub fn commodity_add(&mut self, group: &Commodity, amount: u64) {
         self.commodities.get_mut(group).unwrap().add_assign(amount);
     }
 
-    pub fn commodities(&self) -> Vec<&CommodityGroup> {
+    pub fn commodities(&self) -> Vec<&Commodity> {
         return Vec::from_iter(self.commodities.keys());
     }
 }

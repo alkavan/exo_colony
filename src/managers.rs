@@ -5,7 +5,7 @@ use std::ops::{AddAssign, SubAssign};
 use crate::component::{ComponentGroup, ComponentName};
 use crate::game::{MapObject, Position, Resource};
 use crate::structures::{
-    BatteryTrait, CommodityGroup, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
+    BatteryTrait, Commodity, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
 };
 
 use itertools::Itertools;
@@ -213,15 +213,12 @@ impl EnergyManager {
 pub struct ResourceManager {
     resources: HashMap<Resource, u64>,
     resources_deficit: HashMap<Resource, u64>,
-    commodities: HashMap<CommodityGroup, u64>,
-    commodities_deficit: HashMap<CommodityGroup, u64>,
+    commodities: HashMap<Commodity, u64>,
+    commodities_deficit: HashMap<Commodity, u64>,
 }
 
 impl ResourceManager {
-    pub fn new(
-        resource_types: Vec<Resource>,
-        commodity_types: Vec<CommodityGroup>,
-    ) -> ResourceManager {
+    pub fn new(resource_types: Vec<Resource>, commodity_types: Vec<Commodity>) -> ResourceManager {
         let mut resources: HashMap<Resource, u64> = HashMap::new();
         for resource_type in resource_types {
             resources.insert(resource_type, 0);
@@ -232,12 +229,12 @@ impl ResourceManager {
             resources_deficit.insert(resource_type, 0);
         }
 
-        let mut commodities: HashMap<CommodityGroup, u64> = HashMap::new();
+        let mut commodities: HashMap<Commodity, u64> = HashMap::new();
         for commodity_type in commodity_types {
             commodities.insert(commodity_type, 0);
         }
 
-        let mut commodities_deficit: HashMap<CommodityGroup, u64> = HashMap::new();
+        let mut commodities_deficit: HashMap<Commodity, u64> = HashMap::new();
         for commodity_type in commodities.keys().copied().collect::<Vec<_>>() {
             commodities_deficit.insert(commodity_type, 0);
         }
@@ -298,26 +295,26 @@ impl ResourceManager {
         return self.resources_deficit.get(resource_type).unwrap().clone();
     }
 
-    pub fn commodity_types(&self) -> Vec<CommodityGroup> {
+    pub fn commodity_types(&self) -> Vec<Commodity> {
         return Vec::from_iter(self.commodities.keys().cloned());
         // return vec![];
     }
 
-    pub fn commodities(&self) -> Iter<'_, CommodityGroup, u64> {
+    pub fn commodities(&self) -> Iter<'_, Commodity, u64> {
         return self.commodities.iter();
     }
 
-    pub fn commodities_mut(&mut self) -> IterMut<'_, CommodityGroup, u64> {
+    pub fn commodities_mut(&mut self) -> IterMut<'_, Commodity, u64> {
         return self.commodities.iter_mut();
     }
 
-    pub fn deposit_commodity(&mut self, commodity_type: &CommodityGroup, value: u64) -> u64 {
+    pub fn deposit_commodity(&mut self, commodity_type: &Commodity, value: u64) -> u64 {
         let stored = self.commodities.get_mut(&commodity_type).unwrap();
         stored.add_assign(value);
         return stored.clone();
     }
 
-    pub fn withdraw_commodity(&mut self, commodity_type: &CommodityGroup, amount: u64) -> u64 {
+    pub fn withdraw_commodity(&mut self, commodity_type: &Commodity, amount: u64) -> u64 {
         let stored = self.commodities.get_mut(&commodity_type).unwrap();
 
         if amount > *stored {
@@ -330,14 +327,14 @@ impl ResourceManager {
         return amount;
     }
 
-    fn add_commodity_deficit(&mut self, commodity_type: &CommodityGroup, amount: u64) {
+    fn add_commodity_deficit(&mut self, commodity_type: &Commodity, amount: u64) {
         self.commodities_deficit
             .get_mut(&commodity_type)
             .unwrap()
             .add_assign(amount)
     }
 
-    pub fn get_commodity_deficit(&self, resource_type: &CommodityGroup) -> u64 {
+    pub fn get_commodity_deficit(&self, resource_type: &Commodity) -> u64 {
         return self.commodities_deficit.get(resource_type).unwrap().clone();
     }
 

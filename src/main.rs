@@ -27,7 +27,7 @@ use worldgen::world::Size;
 use crate::game::{MapController, Resource};
 use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
 use crate::managers::{EnergyManager, ResourceManager};
-use crate::structures::{Base, CommodityGroup, Factory, Storage};
+use crate::structures::{Base, Commodity, Factory, Storage};
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
 use crate::util::format_welcome_message;
@@ -67,10 +67,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     ];
 
     let storage_commodities = vec![
-        CommodityGroup::Concrete,
-        CommodityGroup::Electronics,
-        CommodityGroup::Fuel,
-        CommodityGroup::Glass,
+        Commodity::Concrete,
+        Commodity::Electronics,
+        Commodity::Fuel,
+        Commodity::Glass,
     ];
 
     let mut resource_manager = ResourceManager::new(storage_resources, storage_commodities);
@@ -94,10 +94,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]);
 
     let mut commodity_select = FactoryCommoditySelect::new(vec![
-        CommodityGroup::Concrete,
-        CommodityGroup::Electronics,
-        CommodityGroup::Fuel,
-        CommodityGroup::Glass,
+        Commodity::Concrete,
+        Commodity::Electronics,
+        Commodity::Fuel,
+        Commodity::Glass,
     ]);
 
     // The game controller, work with the Map object.

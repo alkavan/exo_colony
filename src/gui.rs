@@ -10,7 +10,7 @@ use crate::game::{Flora, GameMap, MapObject, MapTile, ObjectManager, Position, R
 
 use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{
-    BatteryTrait, CommodityGroup, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
+    BatteryTrait, Commodity, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
     StructureGroup,
 };
 
@@ -205,13 +205,13 @@ impl MenuSelector<Resource> for MineResourceSelect {
 
 pub struct FactoryCommoditySelect {
     selected: usize,
-    items: Vec<CommodityGroup>,
+    items: Vec<Commodity>,
     selected_style: Style,
     default_style: Style,
 }
 
 impl FactoryCommoditySelect {
-    pub fn new(items: Vec<CommodityGroup>) -> FactoryCommoditySelect {
+    pub fn new(items: Vec<Commodity>) -> FactoryCommoditySelect {
         let selected = 0;
 
         let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
@@ -226,8 +226,8 @@ impl FactoryCommoditySelect {
     }
 }
 
-impl MenuSelector<CommodityGroup> for FactoryCommoditySelect {
-    fn selected(&self) -> CommodityGroup {
+impl MenuSelector<Commodity> for FactoryCommoditySelect {
+    fn selected(&self) -> Commodity {
         return self.items[self.selected].clone();
     }
 
