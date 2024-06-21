@@ -1,10 +1,12 @@
 # Exo Colony
 A real-time simulation game about building a colony on an exo-planet for terminal lovers.
 
+![Alt text](doc/exo-colony-screenshot-1.jpg "Optional Title")
+
 ## Alpha Roadmap
 This game is currently in the *alpha* stage.
 We will move to *beta* once all game mechanics will be implemented.
-
+ 
 ### Implemented
 
 * Rendering loop
