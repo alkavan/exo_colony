@@ -9,10 +9,11 @@ use worldgen::world::tile::ConstraintType;
 use worldgen::world::{Size, Tile, World};
 
 use crate::structures::{Structure, StructureGroup};
+use std::iter::FromIterator;
 
 type WorldCache = Vec<Vec<MapTile>>;
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Position {
     pub x: i16,
     pub y: i16,
@@ -32,6 +33,12 @@ impl Position {
     }
 }
 
+impl Display for Position {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Resource {
     Energy,
@@ -47,10 +54,16 @@ impl Display for Resource {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct ResourceDeposit {
-    group: Resource,
-    amount: u32,
+    resource: Resource,
+    amount: u64,
+}
+
+impl ResourceDeposit {
+    pub fn new(resource: Resource, amount: u64) -> ResourceDeposit {
+        return ResourceDeposit { resource, amount };
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -71,11 +84,12 @@ impl Display for Flora {
 #[derive(Clone)]
 pub struct MapTile {
     pub flora: Flora,
+    pub resource: Option<Resource>,
 }
 
 pub struct MapObject {
-    pub resource: Option<ResourceDeposit>,
     pub structure: Option<Structure>,
+    pub deposit: Option<ResourceDeposit>,
 }
 
 pub struct ObjectManager {
@@ -87,6 +101,11 @@ impl ObjectManager {
         let objects = HashMap::new();
         ObjectManager { objects }
     }
+
+    pub fn contains(&self, position: &Position) -> bool {
+        self.objects.contains_key(position)
+    }
+
     pub fn get(&self, position: &Position) -> Option<&MapObject> {
         self.objects.get(position)
     }
@@ -112,11 +131,21 @@ impl ObjectManager {
     }
 }
 
-pub struct MapTileFactory {}
+pub struct TileFactory {}
 
-impl MapTileFactory {
-    pub fn new(flora: Flora) -> MapTile {
-        return MapTile { flora };
+impl TileFactory {
+    pub fn tile(
+        flora: Flora,
+        resource: Option<Resource>,
+        constraints: Vec<Constraint>,
+    ) -> Tile<MapTile> {
+        let mut tile = Tile::new(MapTile { flora, resource });
+
+        for constraint in constraints {
+            tile = tile.when(constraint);
+        }
+
+        return tile;
     }
 }
 
@@ -124,7 +153,7 @@ pub struct GameMap {
     width: u16,
     height: u16,
     world: World<MapTile>,
-    cache: Option<WorldCache>,
+    cache: WorldCache,
 }
 
 impl GameMap {
@@ -139,28 +168,55 @@ impl GameMap {
             .set_seed(Seed::of("!GooToo"))
             .set_step(Step::of(0.05, 0.05));
 
-        let nm = Box::new(nm1 + nm2 * 4);
+        let nm = Box::new(nm1 + (nm2 * 4));
 
-        let water_tile = MapTileFactory::new(Flora::Water);
-        let sand_tile = MapTileFactory::new(Flora::Sand);
-        let grass_tile = MapTileFactory::new(Flora::Grass);
-        let dirt_tile = MapTileFactory::new(Flora::Dirt);
-        let rock_tile = MapTileFactory::new(Flora::Rock);
+        let water_tile = TileFactory::tile(
+            Flora::Water,
+            Option::None,
+            vec![constraint!(nm.clone(), < -0.25)],
+        );
+        let sand_tile = TileFactory::tile(
+            Flora::Sand,
+            Option::None,
+            vec![constraint!(nm.clone(), < 0.0)],
+        );
+        let grass_tile = TileFactory::tile(
+            Flora::Grass,
+            Option::None,
+            vec![constraint!(nm.clone(), < 0.45)],
+        );
+        let dirt_tile = TileFactory::tile(Flora::Dirt, Option::None, vec![]);
+
+        let rock_tile = TileFactory::tile(
+            Flora::Rock,
+            Option::None,
+            vec![
+                constraint!(nm.clone(), > 0.8),
+                constraint!(nm.clone(), < 0.88),
+            ],
+        );
+
+        let rock_deposit_tile = TileFactory::tile(
+            Flora::Rock,
+            Option::from(Resource::Mineral),
+            vec![constraint!(nm.clone(), > 0.87)],
+        );
 
         let world = World::new()
             .set(Size::of(width as i64, height as i64))
             // Water
-            .add(Tile::new(water_tile).when(constraint!(nm.clone(), < -0.25)))
+            .add(water_tile)
             // Sand
-            .add(Tile::new(sand_tile).when(constraint!(nm.clone(), < 0.0)))
+            .add(sand_tile)
             // Grass
-            .add(Tile::new(grass_tile).when(constraint!(nm.clone(), < 0.45)))
+            .add(grass_tile)
             // Mountains
-            .add(Tile::new(rock_tile).when(constraint!(nm.clone(), > 0.8)))
+            .add(rock_tile)
+            .add(rock_deposit_tile)
             // Hills
-            .add(Tile::new(dirt_tile));
+            .add(dirt_tile);
 
-        let cache = world.generate(0, 0);
+        let cache = world.generate(0, 0).unwrap();
 
         return GameMap {
             width,
@@ -175,7 +231,11 @@ impl GameMap {
     }
 
     pub fn cache(&self) -> &WorldCache {
-        return self.cache.as_ref().unwrap();
+        return &self.cache;
+    }
+
+    pub fn cache_copy(&self) -> WorldCache {
+        return WorldCache::from_iter(self.cache.iter().cloned());
     }
 
     pub fn width(&self) -> u16 {
@@ -245,20 +305,60 @@ impl MapController {
         return self.objects.get(position);
     }
 
+    pub fn generate_deposits(&mut self) {
+        let cache = self.map().cache_copy();
+
+        for (y, row) in cache.iter().enumerate() {
+            for (x, tile) in row.iter().enumerate() {
+                if tile.resource.is_some() {
+                    // TODO: make amount random in range
+                    let deposit = ResourceDeposit::new(tile.resource.unwrap(), 1000);
+
+                    let object = MapObject {
+                        structure: Option::None,
+                        deposit: Option::from(deposit),
+                    };
+
+                    self.add_object(Position::new(x as i16, y as i16), object);
+                }
+            }
+        }
+    }
+
     pub fn add_structure(&mut self, structure: Structure) -> Option<MapObject> {
-        let position = self.position().clone();
+        let position = self.position();
+
+        if self.objects.contains(&position) {
+            let mut object = self.remove_object(&position)?;
+
+            if object.structure.is_some() {
+                panic!(
+                    "trying add structure, but {} already exists at {}",
+                    &object.structure.unwrap(),
+                    &position
+                )
+            }
+
+            // add deposit to object
+            object.structure = Option::from(structure);
+
+            // add structure to existing object
+            return self.objects.set(position, object);
+        }
 
         let object = MapObject {
             structure: Option::from(structure),
-            resource: Option::None,
+            deposit: Option::None,
         };
 
         self.add_object(position, object)
     }
 
     pub fn destroy_structure(&mut self) {
-        let position = &self.position();
-        self.remove_object(position);
+        let position = self.position();
+        let mut object = self.remove_object(&position).unwrap();
+        object.structure = Option::None;
+        self.add_object(position, object);
     }
 
     pub fn position(&self) -> Position {
@@ -269,21 +369,21 @@ impl MapController {
         let x = self.position.x as usize;
         let y = self.position.y as usize;
 
-        return &self.map.cache.as_ref().unwrap()[y][x];
+        return &self.map.cache[y][x];
     }
 
     pub fn tile_at(&self, position: Position) -> &MapTile {
         let x = position.x as usize;
         let y = position.y as usize;
 
-        return &self.map.cache.as_ref().unwrap()[y][x];
+        return &self.map.cache[y][x];
     }
 
     pub fn tile_at_mut(&mut self, position: Position) -> &mut MapTile {
         let x = position.x as usize;
         let y = position.y as usize;
 
-        return &mut self.map.cache.as_mut().unwrap()[y][x];
+        return &mut self.map.cache[y][x];
     }
 
     pub fn up(&mut self) {

@@ -21,6 +21,7 @@ pub enum BlockType {
     Medium,
     Light,
     Selected,
+    Resource,
 }
 
 impl From<BlockType> for char {
@@ -31,6 +32,7 @@ impl From<BlockType> for char {
             BlockType::Medium => '▓',
             BlockType::Light => '░',
             BlockType::Selected => '◆',
+            BlockType::Resource => 'R',
         }
     }
 }
@@ -501,10 +503,17 @@ pub fn draw_info_widget(
 ) -> List<'static> {
     let block = build_container_block("Info".to_string());
 
-    let tile_content = format!("Tile({}, {}):", position.x, position.y);
-    let flora_content = format!("Flora: {}", tile.flora);
+    let mut items = vec![
+        ListItem::new(format!("Tile({}, {}):", position.x, position.y)),
+        ListItem::new(format!("Flora: {}", tile.flora.to_string())),
+    ];
 
-    let mut items = vec![ListItem::new(tile_content), ListItem::new(flora_content)];
+    if tile.resource.is_some() {
+        items.push(ListItem::new(format!(
+            "Resource: {}",
+            tile.resource.unwrap().to_string()
+        )));
+    }
 
     if object.is_some() {
         let structure = object.unwrap().structure.as_ref();
@@ -556,7 +565,7 @@ fn get_flora_style(flora: &Flora) -> Style {
         Flora::Sand => Style::default().bg(Color::Yellow),
         Flora::Dirt => Style::default().bg(Color::Rgb(139, 69, 19)),
         Flora::Grass => Style::default().bg(Color::Rgb(0, 128, 0)),
-        Flora::Rock => Style::default().bg(Color::Black),
+        Flora::Rock => Style::default().bg(Color::Rgb(0, 0, 0)),
     }
 }
 
@@ -602,15 +611,29 @@ pub fn render_map(
                     let object = objects.get(&position);
 
                     if object.is_some() {
-                        let structure = object.unwrap().structure.as_ref();
-                        if structure.is_some() {
-                            let structure_symbol = get_structure_symbol(structure.unwrap());
+                        if object.unwrap().structure.is_some() {
+                            let structure = object.unwrap().structure.as_ref();
+                            if structure.is_some() {
+                                let structure_symbol = get_structure_symbol(structure.unwrap());
 
+                                if selected {
+                                    style = style.fg(Color::Red);
+                                }
+
+                                return Span::styled(
+                                    char::from(structure_symbol).to_string(),
+                                    style,
+                                );
+                            }
+                        } else if object.unwrap().deposit.is_some() {
                             if selected {
                                 style = style.fg(Color::Red);
                             }
 
-                            return Span::styled(char::from(structure_symbol).to_string(), style);
+                            return Span::styled(
+                                char::from(BlockType::Resource).to_string(),
+                                style,
+                            );
                         }
                     }
 

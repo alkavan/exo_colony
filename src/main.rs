@@ -104,6 +104,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut map_widget: Option<Paragraph> = None;
 
+    controller.generate_deposits();
+
     loop {
         let elapsed = now.elapsed()?;
         let game_event = events.next()?;
