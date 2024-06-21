@@ -145,8 +145,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let left_layout = gui::build_left_layout(main_layout[0]);
             let right_layout = gui::build_right_layout(main_layout[2]);
             let menu_layout = gui::build_menu_layout(right_layout[0]);
+            let colony_layout = gui::build_colony_layout(left_layout[0]);
 
-            let stats_widget = gui::draw_stats_widget(
+            let stats_widget_left = gui::draw_stats_widget_left(
                 &resource_manager,
                 &energy_manager,
                 elapsed,
@@ -154,7 +155,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 draw_tick.delta(),
             );
 
-            frame.render_widget(stats_widget, left_layout[0]);
+            let stats_widget_right = gui::draw_stats_widget_right(&resource_manager);
+
+            frame.render_widget(stats_widget_left, colony_layout[0]);
+            frame.render_widget(stats_widget_right, colony_layout[1]);
 
             let console_widget = gui::draw_console_widget(&log_buffer);
             frame.render_widget(console_widget, left_layout[1]);

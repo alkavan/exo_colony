@@ -405,6 +405,15 @@ pub fn build_menu_layout(area: Rect) -> Vec<Rect> {
     return layout;
 }
 
+pub fn build_colony_layout(area: Rect) -> Vec<Rect> {
+    let layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(area);
+
+    return layout;
+}
+
 pub fn build_container_block(title: String) -> Block<'static> {
     let style = Style::default().fg(Color::White);
 
@@ -416,27 +425,35 @@ pub fn build_container_block(title: String) -> Block<'static> {
     return block;
 }
 
-pub fn draw_stats_widget(
+pub fn draw_stats_widget_left(
     storage: &ResourceManager,
     energy: &EnergyManager,
     elapsed: Duration,
     update_delta: u128,
     draw_delta: u128,
 ) -> List<'static> {
-    let time = format!(
-        "Time: {:.1} (update: {} ms) (draw: {} ms)",
-        elapsed.as_secs_f32(),
-        update_delta,
-        draw_delta
-    );
-
-    let mut items = vec![ListItem::new(time.clone())];
+    // Time
+    let mut items = vec![
+        ListItem::new(format!("Time: {:.1} (seconds)", elapsed.as_secs_f32())),
+        ListItem::new(format!("Draw: {} (ms)", update_delta)),
+        ListItem::new(format!("Update: {} (ms)", draw_delta)),
+    ];
 
     // Energy list
+    items.push(ListItem::new(format!("{:-^30}", "[ Energy ]")));
     items.push(ListItem::new(format!(
-        "Energy [output: {:<7}] [stored: {:<7}] [deficit: {:<7}]",
-        energy.output().to_string(),
-        energy.stored().to_string(),
+        "{:>9}: {:>9}",
+        "Output".to_string(),
+        energy.output().to_string()
+    )));
+    items.push(ListItem::new(format!(
+        "{:>9}: {:>9}",
+        "Stored".to_string(),
+        energy.stored().to_string()
+    )));
+    items.push(ListItem::new(format!(
+        "{:>9}: {:>9}",
+        "Deficit".to_string(),
         (energy.deficit() as i64).neg().to_string()
     )));
 
@@ -445,8 +462,33 @@ pub fn draw_stats_widget(
     for (resource, amount) in storage.resources() {
         let deficit = storage.get_resource_deficit(resource) as i64;
         let content = format!(
-            "{:>14}: {:>9} ({})",
+            "{:>9}: {:>9} ({})",
             resource.to_string(),
+            amount,
+            deficit.neg().to_string()
+        );
+        items.push(ListItem::new(content));
+    }
+
+    let block = build_container_block("Colony Information".to_string());
+
+    let list = List::new(items)
+        .block(block)
+        .style(Style::default().fg(Color::White));
+
+    return list;
+}
+
+pub fn draw_stats_widget_right(storage: &ResourceManager) -> List<'static> {
+    let mut items = vec![];
+
+    // Manufactured list
+    items.push(ListItem::new(format!("{:-^30}", "[ Manufactured ]")));
+    for (manufactured, amount) in storage.manufactured() {
+        let deficit = storage.get_manufactured_deficit(manufactured) as i64;
+        let content = format!(
+            "{:>14}: {:>9} ({})",
+            manufactured.to_string(),
             amount,
             deficit.neg().to_string()
         );
@@ -466,7 +508,7 @@ pub fn draw_stats_widget(
         items.push(ListItem::new(content));
     }
 
-    let block = build_container_block("Colony".to_string());
+    let block = build_container_block("Colony Information".to_string());
 
     let list = List::new(items)
         .block(block)
