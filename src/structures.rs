@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::Hash;
 use std::iter::FromIterator;
-use std::ops::{AddAssign, SubAssign};
+use std::ops::{AddAssign, Sub, SubAssign};
 
 use crate::game::ResourceGroup;
 
@@ -56,7 +56,7 @@ pub trait BatteryTrait {
     fn capacity(&self) -> u64;
     fn capacity_free(&self) -> u64;
     fn stored(&self) -> u64;
-    fn charge(&mut self, amount: u64);
+    fn charge(&mut self, amount: u64) -> u64;
     fn discharge(&mut self, amount: u64) -> u64;
 }
 
@@ -377,25 +377,29 @@ impl BatteryTrait for StructureBlueprint {
         }
     }
 
-    fn charge(&mut self, amount: u64) {
+    fn charge(&mut self, amount: u64) -> u64 {
         let component = self.get_component_mut(&ComponentName::BatteryComponent);
 
         match component {
             ComponentGroup::Battery {
                 component: BatteryComponent { capacity, stored },
             } => {
-                let free = *capacity - *stored;
+                let free = capacity.sub(*stored);
 
-                if free > 0 {
-                    if amount <= free {
-                        *stored += amount;
-                    } else {
-                        *stored += free;
-                    }
-                };
+                if free == 0 {
+                    return 0;
+                }
+
+                if free <= amount {
+                    stored.add_assign(free);
+                    return free;
+                }
+
+                stored.add_assign(amount);
+                return amount;
             }
-            _ => {}
-        };
+            _ => 0,
+        }
     }
 
     fn discharge(&mut self, amount: u64) -> u64 {
