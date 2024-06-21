@@ -6,11 +6,9 @@ use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
-use crate::game::{
-    EnergyManager, Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup,
-    ResourceManager,
-};
+use crate::game::{Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup};
 
+use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{
     BatteryTrait, CommodityGroup, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
     StructureGroup,

@@ -5,6 +5,7 @@ extern crate worldgen;
 
 mod game;
 mod gui;
+mod managers;
 mod structures;
 mod util;
 
@@ -22,8 +23,9 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
-use crate::game::{EnergyManager, MapController, ResourceGroup, ResourceManager};
+use crate::game::{MapController, ResourceGroup};
 use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
+use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{Base, CommodityGroup, Factory, Storage};
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
