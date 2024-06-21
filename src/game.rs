@@ -329,6 +329,11 @@ impl MapController {
         self.add_object(position, object);
     }
 
+    pub fn destroy_structure(&mut self) {
+        let position = &self.position();
+        self.remove_object(position);
+    }
+
     pub fn position(&self) -> Position {
         return self.position.clone();
     }

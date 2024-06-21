@@ -333,7 +333,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 }
                                 KeyCode::Tab => {}
                                 KeyCode::BackTab => {}
-                                KeyCode::Delete => {}
+                                KeyCode::Delete => {
+                                    controller.destroy_structure();
+                                }
                                 KeyCode::Insert => {}
                                 KeyCode::F(_) => {}
                                 KeyCode::Char(c) => match c {
