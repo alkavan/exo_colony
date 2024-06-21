@@ -1,7 +1,23 @@
 # Exo Colony
 A real-time simulation game about building a colony on an exo-planet for terminal lovers.
 
-![Alt text](doc/exo-colony-screenshot-1.jpg "Optional Title")
+## Screenshots
+
+### Map with resources and built structures
+
+![Alt text](doc/exo-colony-screenshot-map.png "Map")
+
+### Colony information widgets
+
+![Alt text](doc/exo-colony-screenshot-colony-info.png "Colony Information")
+
+### Console / Log
+
+![Alt text](doc/exo-colony-screenshot-console.png "Game Console")
+
+### Build menu with structures and variants
+
+![Alt text](doc/exo-colony-screenshot-build-menu.png "Build Menu")
 
 ## Alpha Roadmap
 This game is currently in the *alpha* stage.
