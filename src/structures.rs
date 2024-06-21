@@ -557,7 +557,7 @@ impl Base {
 
         let battery_component = ComponentGroup::Battery {
             component: BatteryComponent {
-                capacity: 10000,
+                capacity: 5000,
                 stored: 0,
             },
         };
@@ -579,6 +579,10 @@ impl Base {
 
     pub fn blueprint(&self) -> &StructureBlueprint {
         return &self.blueprint;
+    }
+
+    pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
+        return &mut self.blueprint;
     }
 }
 

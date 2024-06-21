@@ -201,6 +201,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     &ResourceGroup::Energy,
                                     battery_capacity_free,
                                 );
+                                BatteryTrait::charge(structure.blueprint_mut(), withdraw)
                             }
                         }
                         Structure::Storage { ref mut structure } => {

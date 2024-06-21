@@ -9,7 +9,7 @@ use crate::game::{
     Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup, ResourceManager,
 };
 use crate::structures::{
-    CommodityGroup, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
+    BatteryTrait, CommodityGroup, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
     StructureGroup,
 };
 
@@ -438,11 +438,11 @@ pub fn format_resource_capacity(
     blueprint: &StructureBlueprint,
     resource_group: &ResourceGroup,
 ) -> String {
-    let capacity = blueprint.capacity(resource_group);
-    let resource = blueprint.resource(resource_group);
+    let capacity = ResourceStorageTrait::capacity(blueprint, resource_group);
+    let resource = ResourceStorageTrait::resource(blueprint, resource_group);
 
     return format!(
-        "{:<10} ({} / {})",
+        "{:<10} ({:>8} / {:<8})",
         resource_group.to_string(),
         resource,
         capacity
@@ -451,9 +451,21 @@ pub fn format_resource_capacity(
 
 pub fn format_energy_io(blueprint: &StructureBlueprint) -> String {
     return format!(
-        "Energy (In/Out): {:>8} / {:<8}",
+        "{:<10} ({:>8} / {:<8})",
+        "Energy IO".to_string(),
         blueprint.energy_in().to_string(),
         blueprint.energy_out().to_string(),
+    );
+}
+
+pub fn format_battery(blueprint: &StructureBlueprint) -> String {
+    let stored = BatteryTrait::stored(blueprint);
+    let capacity = BatteryTrait::capacity(blueprint);
+    return format!(
+        "{:<10} ({:>8} / {:<8})",
+        "Battery".to_string(),
+        stored,
+        capacity,
     );
 }
 
@@ -480,6 +492,7 @@ pub fn draw_info_widget(
             match structure {
                 Structure::Base { ref structure } => {
                     items.push(ListItem::new(format_energy_io(structure.blueprint())));
+                    items.push(ListItem::new(format_battery(structure.blueprint())));
 
                     for resource in structure.blueprint().resources() {
                         items.push(ListItem::new(format_resource_capacity(
