@@ -328,7 +328,18 @@ pub fn draw_resource_select_widget(menu: &MineResourceSelect) -> List {
     return list;
 }
 
-pub fn format_resource(blueprint: &StructureBlueprint, resource_group: &ResourceGroup) -> String {
+pub fn format_resource(resource_group: &ResourceGroup) -> String {
+    return format!(
+        "{:<10}: {}",
+        "Resource:".to_string(),
+        resource_group.to_string()
+    );
+}
+
+pub fn format_resource_capacity(
+    blueprint: &StructureBlueprint,
+    resource_group: &ResourceGroup,
+) -> String {
     let capacity = blueprint.capacity(resource_group);
     let resource = blueprint.resource(resource_group);
 
@@ -363,25 +374,27 @@ pub fn draw_info_widget(
             match structure {
                 Structure::Base { .. } => {}
                 Structure::PowerPlant { .. } => {}
-                Structure::Mine { .. } => {}
+                Structure::Mine { ref structure } => {
+                    items.push(ListItem::new(format_resource(structure.resource())));
+                }
                 Structure::Storage { ref structure } => {
-                    items.push(ListItem::new(format_resource(
+                    items.push(ListItem::new(format_resource_capacity(
                         structure.blueprint(),
                         &ResourceGroup::Energy,
                     )));
-                    items.push(ListItem::new(format_resource(
+                    items.push(ListItem::new(format_resource_capacity(
                         structure.blueprint(),
                         &ResourceGroup::Metal,
                     )));
-                    items.push(ListItem::new(format_resource(
+                    items.push(ListItem::new(format_resource_capacity(
                         structure.blueprint(),
                         &ResourceGroup::Mineral,
                     )));
-                    items.push(ListItem::new(format_resource(
+                    items.push(ListItem::new(format_resource_capacity(
                         structure.blueprint(),
                         &ResourceGroup::Gas,
                     )));
-                    items.push(ListItem::new(format_resource(
+                    items.push(ListItem::new(format_resource_capacity(
                         structure.blueprint(),
                         &ResourceGroup::Carbon,
                     )));
