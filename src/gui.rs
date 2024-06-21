@@ -9,7 +9,8 @@ use crate::game::{
     Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup, ResourceManager,
 };
 use crate::structures::{
-    CommodityGroup, ResourceStorageTrait, Structure, StructureBlueprint, StructureGroup,
+    CommodityGroup, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
+    StructureGroup,
 };
 
 #[derive(Clone, Copy)]
@@ -448,6 +449,14 @@ pub fn format_resource_capacity(
     );
 }
 
+pub fn format_energy_io(blueprint: &StructureBlueprint) -> String {
+    return format!(
+        "Energy (In/Out): {:>8} / {:<8}",
+        blueprint.energy_in().to_string(),
+        blueprint.energy_out().to_string(),
+    );
+}
+
 pub fn draw_info_widget(
     position: Position,
     tile: &MapTile,
@@ -470,6 +479,8 @@ pub fn draw_info_widget(
 
             match structure {
                 Structure::Base { ref structure } => {
+                    items.push(ListItem::new(format_energy_io(structure.blueprint())));
+
                     for resource in structure.blueprint().resources() {
                         items.push(ListItem::new(format_resource_capacity(
                             structure.blueprint(),
