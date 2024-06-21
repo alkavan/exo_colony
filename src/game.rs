@@ -1,4 +1,7 @@
-use crate::structures::{BatteryTrait, CommodityGroup, EnergyTrait, Structure, StructureGroup};
+use crate::structures::{
+    BatteryTrait, CommodityGroup, CommodityOutputTrait, EnergyTrait, ResourceOutputTrait,
+    ResourceRequire, ResourceStorageTrait, Structure, StructureGroup,
+};
 use std::collections::hash_map::{Iter, IterMut};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -147,6 +150,78 @@ impl ResourceManager {
         }
         *amount -= value;
         return true;
+    }
+
+    pub fn collect(
+        &mut self,
+        objects: IterMut<Position, MapObject>,
+        energy_manager: &mut EnergyManager,
+    ) {
+        for (_, object) in objects {
+            // let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
+            let structure = object.structure.as_mut().unwrap();
+
+            match structure {
+                Structure::PowerPlant { structure } => {}
+                Structure::Mine { structure } => {
+                    let energy_required = structure.blueprint().energy_in();
+                    let energy_available = energy_manager.withdraw(energy_required);
+
+                    if energy_available >= energy_required {
+                        self.deposit_resource(
+                            structure.resource(),
+                            structure.blueprint().resource_out(),
+                        );
+                    } else {
+                        let deficit = energy_required - energy_available;
+                        energy_manager.deposit_deficit(deficit);
+                    }
+                }
+                Structure::Base { structure } => {}
+                Structure::Storage { structure } => {
+                    for (resource, amount) in self.list_resources_mut() {
+                        if *amount > 0 {
+                            let amount_stored = structure
+                                .blueprint_mut()
+                                .resource_add(resource, amount.clone());
+
+                            amount.sub_assign(amount_stored);
+                        }
+                    }
+                }
+                Structure::Factory { structure } => {
+                    let requires = structure.blueprint().requires();
+
+                    if requires.is_some() {
+                        let has_resources =
+                            requires
+                                .unwrap()
+                                .iter()
+                                .all(|(required_resource, required_amount)| {
+                                    if *required_resource == ResourceGroup::Energy {
+                                        return energy_manager.has_energy(required_amount.clone());
+                                    }
+
+                                    self.has_resource(required_resource, required_amount.clone())
+                                });
+
+                        if has_resources {
+                            for (required_resource, required_amount) in requires.unwrap().iter() {
+                                if *required_resource == ResourceGroup::Energy {
+                                    energy_manager.withdraw(required_amount.clone());
+                                    continue;
+                                }
+
+                                self.withdraw_resource(required_resource, required_amount.clone());
+                            }
+
+                            let commodity_out = structure.blueprint().commodity_out();
+                            self.deposit_commodity(structure.commodity(), commodity_out);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
