@@ -49,12 +49,13 @@ pub trait EnergyTrait {
 #[derive(Hash, Eq, PartialEq)]
 pub struct BatteryComponent {
     pub capacity: u64,
-    pub used: u64,
+    pub stored: u64,
 }
 
 pub trait BatteryTrait {
     fn capacity(&self) -> u64;
-    fn used(&self) -> u64;
+    fn stored(&self) -> u64;
+    fn charge(&mut self, amount: u64);
 }
 
 pub struct ResourceOutputComponent {
@@ -311,6 +312,16 @@ impl StructureBlueprint {
         }
     }
 
+    pub fn get_component_mut(&mut self, name: &ComponentName) -> &mut ComponentGroup {
+        let component = self.components.get_mut(name);
+
+        if component.is_some() {
+            return component.unwrap();
+        } else {
+            panic!("{} is missing in this structure", name)
+        }
+    }
+
     pub fn has_component(&self, name: &ComponentName) -> bool {
         return self.components.get(name).is_some();
     }
@@ -333,6 +344,47 @@ impl EnergyTrait for StructureBlueprint {
             } => *energy_out,
             _ => 0,
         }
+    }
+}
+
+impl BatteryTrait for StructureBlueprint {
+    fn capacity(&self) -> u64 {
+        match self.get_component(&ComponentName::BatteryComponent) {
+            ComponentGroup::Battery {
+                component: BatteryComponent { capacity, .. },
+            } => *capacity,
+            _ => 0,
+        }
+    }
+
+    fn stored(&self) -> u64 {
+        match self.get_component(&ComponentName::BatteryComponent) {
+            ComponentGroup::Battery {
+                component: BatteryComponent { stored, .. },
+            } => *stored,
+            _ => 0,
+        }
+    }
+
+    fn charge(&mut self, amount: u64) {
+        let component = self.get_component_mut(&ComponentName::BatteryComponent);
+
+        match component {
+            ComponentGroup::Battery {
+                component: BatteryComponent { capacity, stored },
+            } => {
+                let free = *capacity - *stored;
+
+                if free > 0 {
+                    if amount <= free {
+                        *stored += amount;
+                    } else {
+                        *stored += free;
+                    }
+                };
+            }
+            _ => {}
+        };
     }
 }
 
@@ -367,10 +419,7 @@ impl ResourceStorageTrait for StructureBlueprint {
     }
 
     fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64 {
-        let component = self
-            .components
-            .get_mut(&ComponentName::ResourceStorageComponent)
-            .unwrap();
+        let component = self.get_component_mut(&ComponentName::ResourceStorageComponent);
 
         match component {
             ComponentGroup::ResourceStorage { ref mut component } => {
@@ -422,10 +471,7 @@ impl CommodityStorageTrait for StructureBlueprint {
     }
 
     fn commodity_add(&mut self, group: &CommodityGroup, amount: u64) -> u64 {
-        let component = self
-            .components
-            .get_mut(&ComponentName::CommodityStorageComponent)
-            .unwrap();
+        let component = self.get_component_mut(&ComponentName::CommodityStorageComponent);
 
         match component {
             ComponentGroup::CommodityStorage { ref mut component } => {
@@ -502,7 +548,7 @@ impl Base {
         let battery_component = ComponentGroup::Battery {
             component: BatteryComponent {
                 capacity: 10000,
-                used: 0,
+                stored: 0,
             },
         };
 
