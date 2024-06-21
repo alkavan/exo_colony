@@ -1,3 +1,4 @@
+use std::ops::Neg;
 use std::time::Duration;
 
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -6,8 +7,10 @@ use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
 use crate::game::{
-    Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup, ResourceManager,
+    EnergyManager, Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup,
+    ResourceManager,
 };
+
 use crate::structures::{
     BatteryTrait, CommodityGroup, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
     StructureGroup,
@@ -332,6 +335,7 @@ pub fn build_container_block(title: String) -> Block<'static> {
 
 pub fn draw_stats_widget(
     storage: &ResourceManager,
+    energy: &EnergyManager,
     position: Position,
     elapsed: Duration,
     update_delta: u128,
@@ -348,6 +352,15 @@ pub fn draw_stats_widget(
 
     let position_content = format!("Position: ({}, {})", position.x, position.y);
     items.push(ListItem::new(position_content));
+
+    // Energy list
+    items.push(ListItem::new("-[ Energy ]-"));
+    items.push(ListItem::new(format!(
+        "(output: {}) (stored: {}) (deficit: {})",
+        energy.output().to_string(),
+        energy.stored().to_string(),
+        (energy.deficit() as i64).neg().to_string()
+    )));
 
     // Resource list
     items.push(ListItem::new("-[ Resources ]-"));
@@ -452,7 +465,7 @@ pub fn format_resource_capacity(
 pub fn format_energy_io(blueprint: &StructureBlueprint) -> String {
     return format!(
         "{:<10} ({:>8} / {:<8})",
-        "Energy IO".to_string(),
+        "Energy I/O".to_string(),
         blueprint.energy_in().to_string(),
         blueprint.energy_out().to_string(),
     );

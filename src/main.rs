@@ -22,11 +22,11 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
-use crate::game::{MapController, ResourceGroup, ResourceManager};
+use crate::game::{EnergyManager, MapController, ResourceGroup, ResourceManager};
 use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
 use crate::structures::{
-    Base, BatteryTrait, CommodityGroup, CommodityOutputTrait, EnergyTrait, Factory,
-    ResourceOutputTrait, ResourceRequire, ResourceStorageTrait, Storage,
+    Base, CommodityGroup, CommodityOutputTrait, EnergyTrait, Factory, ResourceOutputTrait,
+    ResourceRequire, ResourceStorageTrait, Storage,
 };
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
@@ -54,9 +54,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     // For keeping game draw interval
     let mut draw_tick = Tick::new();
 
+    let mut energy_manager = EnergyManager::new();
+
     // An object for player score keeping and updating.
     let storage_resources = vec![
-        ResourceGroup::Energy,
         ResourceGroup::Metal,
         ResourceGroup::Mineral,
         ResourceGroup::Gas,
@@ -117,6 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let stats_widget = gui::draw_stats_widget(
                 &resource_manager,
+                &energy_manager,
                 controller.position(),
                 elapsed,
                 update_tick.delta(),
@@ -168,43 +170,33 @@ fn main() -> Result<(), Box<dyn Error>> {
             // When we get the draw event, we'll update the game map.
             // Map will not be drawn every loop iteration.
             GameEvent::Update => {
-                let objects = controller.objects_mut().list_mut();
+                energy_manager.zero();
 
+                energy_manager.collect(controller.objects_mut().list());
+
+                let objects = controller.objects_mut().list_mut();
                 for (position, object) in objects {
                     // let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
-
                     let structure = object.structure.as_mut().unwrap();
 
                     match structure {
-                        Structure::PowerPlant { structure } => {
-                            resource_manager.deposit_resource(
-                                &ResourceGroup::Energy,
-                                structure.blueprint().energy_out(),
-                            );
-                        }
+                        Structure::PowerPlant { structure } => {}
                         Structure::Mine { structure } => {
-                            resource_manager.deposit_resource(
-                                structure.resource(),
-                                structure.blueprint().resource_out(),
-                            );
-                        }
-                        Structure::Base { structure } => {
-                            resource_manager.deposit_resource(
-                                &ResourceGroup::Energy,
-                                structure.blueprint().energy_out(),
-                            );
+                            let energy_required = structure.blueprint().energy_in();
+                            let energy_available = energy_manager.withdraw(energy_required);
 
-                            let battery_capacity_free =
-                                BatteryTrait::capacity_free(structure.blueprint());
-                            if battery_capacity_free > 0 {
-                                let withdraw = resource_manager.withdraw_resource(
-                                    &ResourceGroup::Energy,
-                                    battery_capacity_free,
+                            if energy_available >= energy_required {
+                                resource_manager.deposit_resource(
+                                    structure.resource(),
+                                    structure.blueprint().resource_out(),
                                 );
-                                BatteryTrait::charge(structure.blueprint_mut(), withdraw)
+                            } else {
+                                let deficit = energy_required - energy_available;
+                                energy_manager.deposit_deficit(deficit);
                             }
                         }
-                        Structure::Storage { ref mut structure } => {
+                        Structure::Base { structure } => {}
+                        Structure::Storage { structure } => {
                             for (resource, amount) in resource_manager.list_resources_mut() {
                                 if *amount > 0 {
                                     let amount_stored = structure
@@ -221,6 +213,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                             if requires.is_some() {
                                 let has_resources = requires.unwrap().iter().all(
                                     |(required_resource, required_amount)| {
+                                        if *required_resource == ResourceGroup::Energy {
+                                            return energy_manager
+                                                .has_energy(required_amount.clone());
+                                        }
+
                                         resource_manager.has_resource(
                                             required_resource,
                                             required_amount.clone(),
@@ -232,6 +229,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     for (required_resource, required_amount) in
                                         requires.unwrap().iter()
                                     {
+                                        if *required_resource == ResourceGroup::Energy {
+                                            energy_manager.withdraw(required_amount.clone());
+                                            continue;
+                                        }
+
                                         resource_manager.withdraw_resource(
                                             required_resource,
                                             required_amount.clone(),
@@ -245,6 +247,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                             }
                         }
                     }
+                }
+
+                // if we discharged energy from storage, discharge batteries.
+                if energy_manager.discharged() > 0 {
+                    energy_manager.discharge(controller.objects_mut().list_mut());
+                }
+
+                // if we have available energy output, use it to charge batteries.
+                if energy_manager.output() > 0 {
+                    energy_manager.charge(controller.objects_mut().list_mut());
                 }
 
                 update_tick.update(&elapsed);
@@ -268,6 +280,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                             // log_buffer.push_str(&log);
                             match event.code {
                                 KeyCode::Backspace => {}
+                                KeyCode::Left => {
+                                    controller.left();
+                                }
                                 KeyCode::Enter => {
                                     let structure = match menu.selected() {
                                         StructureGroup::Base => Structure::Base {
@@ -290,9 +305,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     };
 
                                     controller.add_structure(structure);
-                                }
-                                KeyCode::Left => {
-                                    controller.left();
                                 }
                                 KeyCode::Right => {
                                     controller.right();

@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::Hash;
-use std::ops::AddAssign;
+use std::iter::FromIterator;
+use std::ops::{AddAssign, SubAssign};
 
 use crate::game::ResourceGroup;
-use itertools::Itertools;
-use std::iter::FromIterator;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
@@ -36,6 +35,7 @@ impl Display for CommodityGroup {
     }
 }
 
+#[derive(Eq, PartialEq, Hash)]
 pub struct EnergyComponent {
     pub energy_in: u64,
     pub energy_out: u64,
@@ -46,7 +46,7 @@ pub trait EnergyTrait {
     fn energy_out(&self) -> u64;
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Eq, PartialEq, Hash)]
 pub struct BatteryComponent {
     pub capacity: u64,
     pub stored: u64,
@@ -57,6 +57,7 @@ pub trait BatteryTrait {
     fn capacity_free(&self) -> u64;
     fn stored(&self) -> u64;
     fn charge(&mut self, amount: u64);
+    fn discharge(&mut self, amount: u64) -> u64;
 }
 
 pub struct ResourceOutputComponent {
@@ -396,6 +397,26 @@ impl BatteryTrait for StructureBlueprint {
             _ => {}
         };
     }
+
+    fn discharge(&mut self, amount: u64) -> u64 {
+        let component = self.get_component_mut(&ComponentName::BatteryComponent);
+
+        match component {
+            ComponentGroup::Battery {
+                component: BatteryComponent { stored, .. },
+            } => {
+                if *stored < amount {
+                    let stored_available = *stored;
+                    stored.sub_assign(stored_available);
+                    return stored_available;
+                }
+
+                stored.sub_assign(amount);
+                return amount;
+            }
+            _ => 0,
+        }
+    }
 }
 
 impl ResourceOutputTrait for StructureBlueprint {
@@ -550,14 +571,14 @@ impl Base {
     pub fn new() -> Base {
         let energy_component = ComponentGroup::Energy {
             component: EnergyComponent {
-                energy_out: 25,
+                energy_out: 50,
                 energy_in: 0,
             },
         };
 
         let battery_component = ComponentGroup::Battery {
             component: BatteryComponent {
-                capacity: 5000,
+                capacity: 1000,
                 stored: 0,
             },
         };
@@ -641,7 +662,7 @@ impl Mine {
         };
 
         let resource_component = ComponentGroup::ResourceOutput {
-            component: ResourceOutputComponent { resource_out: 100 },
+            component: ResourceOutputComponent { resource_out: 1 },
         };
 
         let mut components = HashMap::new();
@@ -719,16 +740,20 @@ impl ResourceRequireFactory {
         match commodity {
             CommodityGroup::MetalPlate => {
                 requires.insert(ResourceGroup::Metal, 15);
+                requires.insert(ResourceGroup::Energy, 45);
             }
             CommodityGroup::MetalPipe => {
                 requires.insert(ResourceGroup::Metal, 5);
+                requires.insert(ResourceGroup::Energy, 20);
             }
             CommodityGroup::Gravel => {
                 requires.insert(ResourceGroup::Mineral, 20);
+                requires.insert(ResourceGroup::Energy, 40);
             }
             CommodityGroup::Fuel => {
                 requires.insert(ResourceGroup::Mineral, 5);
                 requires.insert(ResourceGroup::Carbon, 35);
+                requires.insert(ResourceGroup::Energy, 120);
             }
         }
 
@@ -753,7 +778,7 @@ impl Factory {
         let energy_component = ComponentGroup::Energy {
             component: EnergyComponent {
                 energy_out: 0,
-                energy_in: 15,
+                energy_in: 100,
             },
         };
 
