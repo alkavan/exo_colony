@@ -127,23 +127,28 @@ impl EnergyManager {
         return amount;
     }
 
-    pub fn deposit_deficit(&mut self, amount: u64) {
+    pub fn add_deficit(&mut self, amount: u64) {
         self.deficit.add_assign(amount);
     }
 
     pub fn withdraw(&mut self, amount: u64) -> u64 {
         let available_output = self.withdraw_output(amount);
+        // when we have all requested energy from output
         if available_output >= amount {
             return amount;
         }
 
         let available_stored = self.withdraw_stored(amount - available_output);
+        self.add_deficit(available_stored);
         let available = available_output + available_stored;
 
+        // when we we have requested energy after using stored
         if available >= amount {
             return amount;
         }
 
+        // when we don't have requested energy
+        self.add_deficit(available);
         return available;
     }
 
@@ -270,7 +275,7 @@ impl ResourceManager {
         return amount;
     }
 
-    fn deficit_resource(&mut self, resource_type: &ResourceGroup, amount: u64) {
+    fn add_resource_deficit(&mut self, resource_type: &ResourceGroup, amount: u64) {
         self.resources_deficit
             .get_mut(&resource_type)
             .unwrap()
@@ -308,7 +313,7 @@ impl ResourceManager {
         return amount;
     }
 
-    fn deficit_commodity(&mut self, resource_type: &CommodityGroup, amount: u64) {
+    fn add_commodity_deficit(&mut self, resource_type: &CommodityGroup, amount: u64) {
         self.commodities_deficit
             .get_mut(&resource_type)
             .unwrap()
@@ -344,17 +349,16 @@ impl ResourceManager {
                 Structure::PowerPlant { .. } => {}
                 Structure::Mine { structure } => {
                     let energy_required = structure.blueprint().energy_in();
-                    let energy_available = energy_manager.withdraw(energy_required);
                     let resource = structure.resource();
 
-                    if energy_available >= energy_required {
+                    if energy_manager.has_energy(energy_required) {
                         // resource mined.
+                        energy_manager.withdraw(energy_required);
                         self.deposit_resource(resource, structure.blueprint().resource_out());
                     } else {
                         // resource not mined due to missing energy.
-                        let deficit = energy_required - energy_available;
-                        energy_manager.deposit_deficit(deficit);
-                        self.deficit_resource(resource, structure.blueprint().resource_out());
+                        energy_manager.add_deficit(energy_required);
+                        self.add_resource_deficit(resource, structure.blueprint().resource_out());
                     }
                 }
                 Structure::Base { .. } => {}
