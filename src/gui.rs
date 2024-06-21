@@ -6,6 +6,7 @@ use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
 use crate::game::{Flora, GameMap, MapTile, Position, ResourceStorage};
+use crate::structures::{Structure, StructureGroup};
 
 #[derive(Clone, Copy)]
 pub enum BlockType {
@@ -27,14 +28,14 @@ impl From<BlockType> for char {
 }
 
 pub struct Menu {
-    items: Vec<String>,
+    items: Vec<StructureGroup>,
     selected: usize,
     selected_style: Style,
     default_style: Style,
 }
 
 impl Menu {
-    pub fn new(items: Vec<String>) -> Menu {
+    pub fn new(items: Vec<StructureGroup>) -> Menu {
         let selected_style = Style::default().bg(Color::Red).fg(Color::White);
         let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
         let selected = 0;
@@ -57,12 +58,19 @@ impl Menu {
         return Span::styled(name, style);
     }
 
+    pub fn selected(&self) -> StructureGroup {
+        return self.items[self.selected].clone();
+    }
+
     pub fn items(&self) -> Vec<ListItem> {
         let list = self
             .items
             .iter()
             .enumerate()
-            .map(|(index, name)| ListItem::new(self.get_item_span(name.clone(), index)))
+            .map(|(index, structure_group)| {
+                let content = self.get_item_span(structure_group.to_string(), index);
+                ListItem::new(content)
+            })
             .collect();
 
         return list;
@@ -291,7 +299,7 @@ pub fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static>> {
                         }
                     };
 
-                    let symbol = match tile.flora {
+                    let block_symbol = match tile.flora {
                         Flora::Water => BlockType::Light,
                         Flora::Sand => BlockType::Light,
                         Flora::Dirt => BlockType::Light,
@@ -299,7 +307,16 @@ pub fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static>> {
                         Flora::Rock => BlockType::Light,
                     };
 
-                    return Span::styled(char::from(symbol).to_string(), style);
+                    if tile.structure.is_some() {
+                        let structure_symbol = match tile.structure.as_ref().unwrap() {
+                            Structure::PowerPlant { .. } => 'P',
+                            Structure::Mine { .. } => 'M',
+                        };
+
+                        return Span::styled(char::from(structure_symbol).to_string(), style);
+                    }
+
+                    return Span::styled(char::from(block_symbol).to_string(), style);
                 })
                 .collect();
             return Spans::from(spans);

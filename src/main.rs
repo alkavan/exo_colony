@@ -5,6 +5,7 @@ extern crate worldgen;
 
 mod game;
 mod gui;
+mod structures;
 mod util;
 
 use std::error::Error;
@@ -21,8 +22,11 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
-use crate::game::{MapController, PowerPlant, ResourceGroup, ResourceStorage, Structure};
+use crate::game::{MapController, ResourceGroup, ResourceStorage};
 use crate::gui::Menu;
+use crate::structures::{EnergyTrait, ResourceTrait};
+use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
+
 use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
 
@@ -48,6 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // An object for player score keeping and updating.
     let mut resource_storage = ResourceStorage::new(vec![
+        ResourceGroup::Energy,
         ResourceGroup::Metal,
         ResourceGroup::Mineral,
         ResourceGroup::Gas,
@@ -55,11 +60,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]);
 
     let mut menu = Menu::new(vec![
-        "Base".to_string(),
-        "Power Plant".to_string(),
-        "Mine".to_string(),
-        "Storage".to_string(),
-        "Factory".to_string(),
+        StructureGroup::Base,
+        StructureGroup::Energy,
+        StructureGroup::Mine,
+        StructureGroup::Storage,
+        StructureGroup::Factory,
     ]);
 
     // The game controller, work with the Map object.
@@ -121,6 +126,23 @@ fn main() -> Result<(), Box<dyn Error>> {
                 draw_tick.update(&elapsed);
             }
             GameEvent::Update => {
+                for (position, group) in controller.locations() {
+                    let structure = controller.tile_at(position.clone()).structure.unwrap();
+
+                    let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
+
+                    match structure {
+                        Structure::PowerPlant { structure } => resource_storage.add(
+                            ResourceGroup::Energy,
+                            structure.blueprint().energy_out() as f64 * time_factor,
+                        ),
+                        Structure::Mine { structure } => resource_storage.add(
+                            ResourceGroup::Mineral,
+                            structure.blueprint().resource_out() as f64 * time_factor,
+                        ),
+                    }
+                }
+
                 update_tick.update(&elapsed);
             }
             GameEvent::Input => {
@@ -134,19 +156,38 @@ fn main() -> Result<(), Box<dyn Error>> {
                             match event.code {
                                 KeyCode::Backspace => {}
                                 KeyCode::Enter => {
-                                    let x = controller.position().x as usize;
-                                    let y = controller.position().y as usize;
-
-                                    let power_plant = Structure::PowerPlant {
-                                        blueprint: PowerPlant::new(),
+                                    let structure = match menu.selected() {
+                                        StructureGroup::Base => Structure::PowerPlant {
+                                            structure: PowerPlant::new(),
+                                        },
+                                        StructureGroup::Energy => Structure::PowerPlant {
+                                            structure: PowerPlant::new(),
+                                        },
+                                        StructureGroup::Mine => Structure::Mine {
+                                            structure: Mine::new(),
+                                        },
+                                        StructureGroup::Storage => Structure::PowerPlant {
+                                            structure: PowerPlant::new(),
+                                        },
+                                        StructureGroup::Factory => Structure::PowerPlant {
+                                            structure: PowerPlant::new(),
+                                        },
                                     };
 
-                                    controller.map_mut().set_structure(x, y, power_plant);
+                                    controller.add_structure(structure);
                                 }
-                                KeyCode::Left => {}
-                                KeyCode::Right => {}
-                                KeyCode::Up => {}
-                                KeyCode::Down => {}
+                                KeyCode::Left => {
+                                    controller.left();
+                                }
+                                KeyCode::Right => {
+                                    controller.right();
+                                }
+                                KeyCode::Up => {
+                                    controller.up();
+                                }
+                                KeyCode::Down => {
+                                    controller.down();
+                                }
                                 KeyCode::Home => {}
                                 KeyCode::End => {}
                                 KeyCode::PageUp => {

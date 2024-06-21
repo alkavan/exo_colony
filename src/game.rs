@@ -1,3 +1,4 @@
+use crate::structures::{Structure, StructureGroup, StructureGroupTrait};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -7,7 +8,7 @@ use worldgen::world::tile::Constraint;
 use worldgen::world::tile::ConstraintType;
 use worldgen::world::{Size, Tile, World};
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Position {
     pub x: i16,
     pub y: i16,
@@ -29,6 +30,7 @@ impl Position {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ResourceGroup {
+    Energy,
     Metal,
     Mineral,
     Gas,
@@ -63,25 +65,25 @@ impl Display for Flora {
 }
 
 pub struct ResourceStorage {
-    map: HashMap<ResourceGroup, u32>,
+    map: HashMap<ResourceGroup, f64>,
 }
 
 impl ResourceStorage {
     pub fn new(resources: Vec<ResourceGroup>) -> ResourceStorage {
-        let mut map: HashMap<ResourceGroup, u32> = HashMap::new();
+        let mut map: HashMap<ResourceGroup, f64> = HashMap::new();
 
         for resource_type in resources {
-            map.insert(resource_type, 0);
+            map.insert(resource_type, 0.0);
         }
 
         return ResourceStorage { map };
     }
 
-    pub fn list(&self) -> &HashMap<ResourceGroup, u32> {
+    pub fn list(&self) -> &HashMap<ResourceGroup, f64> {
         return &self.map;
     }
 
-    pub fn add(&mut self, resource_type: ResourceGroup, value: u32) {
+    pub fn add(&mut self, resource_type: ResourceGroup, value: f64) {
         *self.map.get_mut(&resource_type).unwrap() += value;
     }
 }
@@ -112,86 +114,6 @@ impl MapTileFactory {
             resource: Option::None,
             structure: Option::None,
         };
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum StructureGroup {
-    Base,
-    Energy,
-    Mine,
-    Storage,
-    Factory,
-}
-
-impl Display for StructureGroup {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-#[derive(Clone)]
-pub enum ComponentGroup {
-    Energy { energy_in: f64, energy_out: f64 },
-}
-
-trait EnergyTrait {
-    fn energy_in(&self) -> f64;
-    fn energy_out(&self) -> f64;
-}
-
-pub struct EnergyComponent {
-    energy_in: f64,
-    energy_out: f64,
-}
-
-#[derive(Clone, Debug)]
-pub enum Structure {
-    PowerPlant { blueprint: PowerPlant },
-}
-
-impl Display for Structure {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        let name = match self {
-            Structure::PowerPlant { .. } => "Power Plant",
-        };
-        write!(f, "{:?}", name)
-    }
-}
-
-#[derive(Clone)]
-pub struct PowerPlant {
-    group: StructureGroup,
-    components: Vec<ComponentGroup>,
-}
-
-impl Debug for PowerPlant {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl PowerPlant {
-    pub fn new() -> PowerPlant {
-        let group = StructureGroup::Energy;
-        let energy_component = ComponentGroup::Energy {
-            energy_in: 0.0,
-            energy_out: 0.0,
-        };
-
-        let components = vec![energy_component];
-
-        return PowerPlant { group, components };
-    }
-}
-
-impl EnergyTrait for PowerPlant {
-    fn energy_in(&self) -> f64 {
-        unimplemented!()
-    }
-
-    fn energy_out(&self) -> f64 {
-        unimplemented!()
     }
 }
 
@@ -273,6 +195,7 @@ impl GameMap {
 pub struct MapController {
     map: GameMap,
     position: Position,
+    locations: HashMap<Position, StructureGroup>,
 }
 
 impl MapController {
@@ -282,7 +205,13 @@ impl MapController {
 
         let map = GameMap::new(w, h);
 
-        return MapController { map, position };
+        let locations = HashMap::new();
+
+        return MapController {
+            map,
+            position,
+            locations,
+        };
     }
 
     pub fn map(&self) -> &GameMap {
@@ -291,6 +220,18 @@ impl MapController {
 
     pub fn map_mut(&mut self) -> &mut GameMap {
         return &mut self.map;
+    }
+
+    pub fn locations(&self) -> &HashMap<Position, StructureGroup> {
+        return &self.locations;
+    }
+
+    pub fn add_structure(&mut self, structure: Structure) {
+        let group = structure.group();
+        let position = self.position();
+        self.map
+            .set_structure(position.x as usize, position.y as usize, structure);
+        self.locations.insert(position, group);
     }
 
     pub fn position(&self) -> Position {
