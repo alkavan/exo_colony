@@ -62,11 +62,8 @@ impl EnergyManager {
     }
 
     pub fn collect(&mut self, objects: Iter<Position, MapObject>) {
-        for (_, object) in objects {
-            if object.structure.is_none() {
-                continue;
-            }
-
+        let filtered = objects.filter(|(_, o)| o.structure.is_some());
+        for (_, object) in filtered {
             let structure = object.structure.as_ref().unwrap();
 
             match structure {
@@ -157,11 +154,8 @@ impl EnergyManager {
     }
 
     pub fn charge(&mut self, objects: IterMut<Position, MapObject>) {
-        for (_, object) in objects {
-            if object.structure.is_none() {
-                continue;
-            }
-
+        let filtered = objects.filter(|(_, o)| o.structure.is_some());
+        for (_, object) in filtered {
             let structure = object.structure.as_mut().unwrap();
 
             match structure {
@@ -188,11 +182,9 @@ impl EnergyManager {
     }
 
     pub fn discharge(&mut self, objects: IterMut<Position, MapObject>) {
-        for (_, object) in objects {
-            if object.structure.is_none() {
-                continue;
-            }
+        let filtered = objects.filter(|(_, o)| o.structure.is_some());
 
+        for (_, object) in filtered {
             let structure = object.structure.as_mut().unwrap();
 
             match structure {
@@ -353,11 +345,9 @@ impl ResourceManager {
     ) {
         self.zero_deficit();
 
-        for (_, object) in objects {
-            // TODO: split into structures and resources?
-            if object.structure.is_none() {
-                continue;
-            }
+        let filtered = objects.filter(|(_, o)| o.structure.is_some());
+
+        for (_, object) in filtered {
             // let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
             let structure = object.structure.as_mut().unwrap();
 
