@@ -55,13 +55,11 @@ pub trait BatteryTrait {
     fn used(&self) -> u64;
 }
 
-pub struct ResourceComponent {
-    pub resource_in: u64,
+pub struct ResourceOutputComponent {
     pub resource_out: u64,
 }
 
-pub trait ResourceTrait {
-    fn resource_in(&self) -> u64;
+pub trait ResourceOutputTrait {
     fn resource_out(&self) -> u64;
 }
 
@@ -149,7 +147,7 @@ pub trait CommodityTrait {
     fn commodity_out(&self) -> u64;
 }
 
-pub struct ResourceRequireComponent {
+pub struct ResourceRequireFactory {
     pub requires: HashMap<ResourceGroup, u64>,
 }
 
@@ -175,18 +173,18 @@ impl Display for ComponentName {
 
 pub enum ComponentGroup {
     Energy { component: EnergyComponent },
-    Resource { component: ResourceComponent },
+    ResourceOutput { component: ResourceOutputComponent },
+    ResourceRequire { component: ResourceRequireFactory },
     Storage { component: StorageComponent },
     Battery { component: BatteryComponent },
     Commodity { component: CommodityComponent },
-    ResourceRequire { component: ResourceRequireComponent },
 }
 
 impl Display for ComponentGroup {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let name = match self {
             ComponentGroup::Energy { .. } => ComponentName::EnergyComponent,
-            ComponentGroup::Resource { .. } => ComponentName::ResourceComponent,
+            ComponentGroup::ResourceOutput { .. } => ComponentName::ResourceComponent,
             ComponentGroup::Storage { .. } => ComponentName::StorageComponent,
             ComponentGroup::Battery { .. } => ComponentName::BatteryComponent,
             ComponentGroup::Commodity { .. } => ComponentName::CommodityComponent,
@@ -275,20 +273,11 @@ impl EnergyTrait for StructureBlueprint {
     }
 }
 
-impl ResourceTrait for StructureBlueprint {
-    fn resource_in(&self) -> u64 {
-        match self.get_component(&ComponentName::ResourceComponent) {
-            ComponentGroup::Resource {
-                component: ResourceComponent { resource_in, .. },
-            } => *resource_in,
-            _ => 0,
-        }
-    }
-
+impl ResourceOutputTrait for StructureBlueprint {
     fn resource_out(&self) -> u64 {
         match self.get_component(&ComponentName::ResourceComponent) {
-            ComponentGroup::Resource {
-                component: ResourceComponent { resource_out, .. },
+            ComponentGroup::ResourceOutput {
+                component: ResourceOutputComponent { resource_out },
             } => *resource_out,
             _ => 0,
         }
@@ -367,7 +356,7 @@ impl ResourceRequire for StructureBlueprint {
     fn requires(&self) -> Option<&HashMap<ResourceGroup, u64>> {
         match self.get_component(&ComponentName::ResourceRequireComponent) {
             ComponentGroup::ResourceRequire {
-                component: ResourceRequireComponent { requires },
+                component: ResourceRequireFactory { requires },
             } => Option::from(requires),
             _ => Option::None,
         }
@@ -470,11 +459,8 @@ impl Mine {
             },
         };
 
-        let resource_component = ComponentGroup::Resource {
-            component: ResourceComponent {
-                resource_out: 100,
-                resource_in: 0,
-            },
+        let resource_component = ComponentGroup::ResourceOutput {
+            component: ResourceOutputComponent { resource_out: 100 },
         };
 
         let mut components = HashMap::new();
@@ -533,7 +519,7 @@ impl Storage {
     }
 }
 
-impl ResourceRequireComponent {
+impl ResourceRequireFactory {
     fn for_commodity(commodity: &CommodityGroup) -> HashMap<ResourceGroup, u64> {
         let mut requires = HashMap::new();
 
@@ -578,10 +564,10 @@ impl Factory {
             },
         };
 
-        let requires = ResourceRequireComponent::for_commodity(&commodity);
+        let requires = ResourceRequireFactory::for_commodity(&commodity);
 
         let resource_require_component = ComponentGroup::ResourceRequire {
-            component: ResourceRequireComponent { requires },
+            component: ResourceRequireFactory { requires },
         };
 
         let commodity_component = ComponentGroup::Commodity {
