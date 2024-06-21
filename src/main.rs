@@ -24,7 +24,10 @@ use worldgen::world::Size;
 
 use crate::game::{MapController, ResourceGroup, ResourceManager};
 use crate::gui::{Menu, MenuSelector, MineResourceSelect};
-use crate::structures::{Base, EnergyTrait, ResourceTrait, Storage, StorageTrait};
+use crate::structures::{
+    Base, CommodityGroup, CommodityTrait, EnergyTrait, Factory, ResourceTrait, Storage,
+    StorageTrait,
+};
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
 use crate::util::format_welcome_message;
@@ -52,13 +55,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut draw_tick = Tick::new();
 
     // An object for player score keeping and updating.
-    let mut resource_manager = ResourceManager::new(vec![
+    let storage_resources = vec![
         ResourceGroup::Energy,
         ResourceGroup::Metal,
         ResourceGroup::Mineral,
         ResourceGroup::Gas,
         ResourceGroup::Carbon,
-    ]);
+    ];
+
+    let storage_commodities = vec![
+        CommodityGroup::MetalPipe,
+        CommodityGroup::MetalPlate,
+        CommodityGroup::Gravel,
+        CommodityGroup::Fuel,
+    ];
+
+    let mut resource_manager = ResourceManager::new(storage_resources, storage_commodities);
 
     let mut menu = Menu::new(vec![
         StructureGroup::Base,
@@ -147,14 +159,26 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let structure = object.structure.as_mut().unwrap();
 
                     match structure {
-                        Structure::PowerPlant { structure } => resource_manager
-                            .deposit(&ResourceGroup::Energy, structure.blueprint().energy_out()),
-                        Structure::Mine { structure } => resource_manager
-                            .deposit(structure.resource(), structure.blueprint().resource_out()),
-                        Structure::Base { structure } => resource_manager
-                            .deposit(&ResourceGroup::Energy, structure.blueprint().energy_out()),
+                        Structure::PowerPlant { structure } => {
+                            resource_manager.deposit_resource(
+                                &ResourceGroup::Energy,
+                                structure.blueprint().energy_out(),
+                            );
+                        }
+                        Structure::Mine { structure } => {
+                            resource_manager.deposit_resource(
+                                structure.resource(),
+                                structure.blueprint().resource_out(),
+                            );
+                        }
+                        Structure::Base { structure } => {
+                            resource_manager.deposit_resource(
+                                &ResourceGroup::Energy,
+                                structure.blueprint().energy_out(),
+                            );
+                        }
                         Structure::Storage { ref mut structure } => {
-                            for (resource, amount) in resource_manager.list_mut() {
+                            for (resource, amount) in resource_manager.list_resources_mut() {
                                 if *amount > 0 {
                                     let amount_stored = structure
                                         .blueprint_mut()
@@ -162,6 +186,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                                     amount.sub_assign(amount_stored);
                                 }
+                            }
+                        }
+                        Structure::Factory { structure } => {
+                            let resource_in = structure.blueprint().resource_in();
+                            if resource_manager
+                                .withdraw_resource(&ResourceGroup::Metal, resource_in)
+                            {
+                                let commodity_out = structure.blueprint().commodity_out();
+                                resource_manager
+                                    .deposit_commodity(structure.commodity(), commodity_out);
                             }
                         }
                     }
@@ -202,8 +236,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                                         StructureGroup::Storage => Structure::Storage {
                                             structure: Storage::new(),
                                         },
-                                        StructureGroup::Factory => Structure::PowerPlant {
-                                            structure: PowerPlant::new(),
+                                        StructureGroup::Factory => Structure::Factory {
+                                            structure: Factory::new(CommodityGroup::Fuel),
                                         },
                                     };
 

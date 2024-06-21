@@ -1,4 +1,4 @@
-use crate::structures::{Structure, StructureGroup};
+use crate::structures::{CommodityGroup, Structure, StructureGroup};
 use std::collections::hash_map::{Iter, IterMut};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -68,33 +68,80 @@ impl Display for Flora {
 
 pub struct ResourceManager {
     resources: HashMap<ResourceGroup, u64>,
+    commodities: HashMap<CommodityGroup, u64>,
 }
 
 impl ResourceManager {
-    pub fn new(resource_types: Vec<ResourceGroup>) -> ResourceManager {
+    pub fn new(
+        resource_types: Vec<ResourceGroup>,
+        commodity_types: Vec<CommodityGroup>,
+    ) -> ResourceManager {
         let mut resources: HashMap<ResourceGroup, u64> = HashMap::new();
-
         for resource_type in resource_types {
             resources.insert(resource_type, 0);
         }
 
-        return ResourceManager { resources };
+        let mut commodities: HashMap<CommodityGroup, u64> = HashMap::new();
+        for commodity_type in commodity_types {
+            commodities.insert(commodity_type, 0);
+        }
+
+        return ResourceManager {
+            resources,
+            commodities,
+        };
     }
 
-    pub fn list(&self) -> Iter<'_, ResourceGroup, u64> {
+    pub fn list_resources(&self) -> Iter<'_, ResourceGroup, u64> {
         return self.resources.iter();
     }
 
-    pub fn list_mut(&mut self) -> IterMut<'_, ResourceGroup, u64> {
+    pub fn list_resources_mut(&mut self) -> IterMut<'_, ResourceGroup, u64> {
         return self.resources.iter_mut();
     }
 
-    pub fn deposit(&mut self, resource_type: &ResourceGroup, value: u64) {
-        *self.resources.get_mut(&resource_type).unwrap() += value;
+    pub fn deposit_resource(&mut self, resource_type: &ResourceGroup, value: u64) -> bool {
+        if value == 0 {
+            return false;
+        }
+        let amount = self.resources.get_mut(&resource_type).unwrap();
+        *amount += value;
+        return true;
     }
 
-    pub fn withdraw(&mut self, resource_type: &ResourceGroup, value: u64) {
-        *self.resources.get_mut(&resource_type).unwrap() -= value;
+    pub fn withdraw_resource(&mut self, resource_type: &ResourceGroup, value: u64) -> bool {
+        let amount = self.resources.get_mut(&resource_type).unwrap();
+        if *amount < value {
+            return false;
+        }
+        *amount -= value;
+        return true;
+    }
+
+    pub fn list_commodities(&self) -> Iter<'_, CommodityGroup, u64> {
+        return self.commodities.iter();
+    }
+
+    pub fn list_commodities_mut(&mut self) -> IterMut<'_, CommodityGroup, u64> {
+        return self.commodities.iter_mut();
+    }
+
+    pub fn deposit_commodity(&mut self, resource_type: &CommodityGroup, value: u64) -> bool {
+        if value == 0 {
+            return false;
+        }
+        let amount = self.commodities.get_mut(&resource_type).unwrap();
+        *amount += value;
+        return true;
+    }
+
+    pub fn withdraw_commodity(&mut self, resource_type: &CommodityGroup, value: u64) -> bool {
+        let amount = self.commodities.get_mut(&resource_type).unwrap();
+        if *amount < value {
+            return false;
+        }
+        *amount -= value;
+        return true;
     }
 }
 

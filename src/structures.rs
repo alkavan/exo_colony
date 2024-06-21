@@ -19,6 +19,20 @@ impl Display for StructureGroup {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum CommodityGroup {
+    MetalPlate,
+    MetalPipe,
+    Gravel,
+    Fuel,
+}
+
+impl Display for CommodityGroup {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct EnergyComponent {
     pub energy_in: u64,
@@ -30,7 +44,7 @@ pub trait EnergyTrait {
     fn energy_out(&self) -> u64;
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Hash, Eq, PartialEq)]
 pub struct BatteryComponent {
     pub capacity: u64,
     pub used: u64,
@@ -41,7 +55,7 @@ pub trait BatteryTrait {
     fn used(&self) -> u64;
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Hash, Eq, PartialEq)]
 pub struct ResourceComponent {
     pub resource_in: u64,
     pub resource_out: u64,
@@ -52,10 +66,10 @@ pub trait ResourceTrait {
     fn resource_out(&self) -> u64;
 }
 
-#[derive(Clone)]
 pub struct StorageComponent {
     pub capacity: HashMap<ResourceGroup, u64>,
     pub resources: HashMap<ResourceGroup, u64>,
+    pub commodities: HashMap<CommodityGroup, u64>,
 }
 
 impl StorageComponent {
@@ -74,9 +88,16 @@ impl StorageComponent {
         resources.insert(ResourceGroup::Carbon, 0);
         resources.insert(ResourceGroup::Gas, 0);
 
+        let mut commodities = HashMap::new();
+        commodities.insert(CommodityGroup::Fuel, 0);
+        commodities.insert(CommodityGroup::Gravel, 0);
+        commodities.insert(CommodityGroup::MetalPlate, 0);
+        commodities.insert(CommodityGroup::MetalPipe, 0);
+
         return StorageComponent {
             capacity,
             resources,
+            commodities,
         };
     }
 
@@ -99,6 +120,18 @@ impl StorageComponent {
     fn resource_add(&mut self, group: &ResourceGroup, amount: u64) {
         self.resources.get_mut(group).unwrap().add_assign(amount);
     }
+
+    fn commodity(&self, group: &CommodityGroup) -> u64 {
+        return self.commodities[&group];
+    }
+
+    fn commodity_mut(&mut self, group: &CommodityGroup) -> &mut u64 {
+        return self.commodities.get_mut(&group).unwrap();
+    }
+
+    fn commodity_add(&mut self, group: &CommodityGroup, amount: u64) {
+        self.commodities.get_mut(group).unwrap().add_assign(amount);
+    }
 }
 
 pub trait StorageTrait {
@@ -107,12 +140,24 @@ pub trait StorageTrait {
     fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64;
 }
 
+#[derive(Hash, Eq, PartialEq)]
+pub struct CommodityComponent {
+    pub commodity_in: u64,
+    pub commodity_out: u64,
+}
+
+pub trait CommodityTrait {
+    fn commodity_in(&self) -> u64;
+    fn commodity_out(&self) -> u64;
+}
+
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum ComponentName {
     EnergyComponent,
     ResourceComponent,
     StorageComponent,
     BatteryComponent,
+    CommodityComponent,
 }
 
 impl Display for ComponentName {
@@ -121,12 +166,12 @@ impl Display for ComponentName {
     }
 }
 
-#[derive(Clone)]
 pub enum ComponentGroup {
     Energy { component: EnergyComponent },
     Resource { component: ResourceComponent },
     Storage { component: StorageComponent },
     Battery { component: BatteryComponent },
+    Commodity { component: CommodityComponent },
 }
 
 impl Display for ComponentGroup {
@@ -136,18 +181,20 @@ impl Display for ComponentGroup {
             ComponentGroup::Resource { .. } => ComponentName::ResourceComponent,
             ComponentGroup::Storage { .. } => ComponentName::StorageComponent,
             ComponentGroup::Battery { .. } => ComponentName::BatteryComponent,
+            ComponentGroup::Commodity { .. } => ComponentName::CommodityComponent,
         };
 
         write!(f, "{}", name)
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Structure {
     Base { structure: Base },
     PowerPlant { structure: PowerPlant },
     Mine { structure: Mine },
     Storage { structure: Storage },
+    Factory { structure: Factory },
 }
 
 impl Display for Structure {
@@ -157,6 +204,7 @@ impl Display for Structure {
             Structure::Mine { .. } => "Mine",
             Structure::Base { .. } => "Base",
             Structure::Storage { .. } => "Storage",
+            Structure::Factory { .. } => "Factory",
         };
         write!(f, "{}", name)
     }
@@ -173,11 +221,11 @@ impl StructureGroupTrait for Structure {
             Structure::PowerPlant { .. } => StructureGroup::Energy,
             Structure::Mine { .. } => StructureGroup::Mine,
             Structure::Storage { .. } => StructureGroup::Storage,
+            Structure::Factory { .. } => StructureGroup::Factory,
         }
     }
 }
 
-#[derive(Clone)]
 pub struct StructureBlueprint {
     components: HashMap<ComponentName, ComponentGroup>,
 }
@@ -289,8 +337,27 @@ impl StorageTrait for StructureBlueprint {
     }
 }
 
+impl CommodityTrait for StructureBlueprint {
+    fn commodity_in(&self) -> u64 {
+        match self.get_component(&ComponentName::CommodityComponent) {
+            ComponentGroup::Commodity {
+                component: CommodityComponent { commodity_in, .. },
+            } => *commodity_in,
+            _ => 0,
+        }
+    }
+
+    fn commodity_out(&self) -> u64 {
+        match self.get_component(&ComponentName::CommodityComponent) {
+            ComponentGroup::Commodity {
+                component: CommodityComponent { commodity_out, .. },
+            } => *commodity_out,
+            _ => 0,
+        }
+    }
+}
+
 // Base
-#[derive(Clone)]
 pub struct Base {
     pub blueprint: StructureBlueprint,
 }
@@ -333,7 +400,6 @@ impl Base {
 }
 
 // PowerPlant
-#[derive(Clone)]
 pub struct PowerPlant {
     blueprint: StructureBlueprint,
 }
@@ -367,7 +433,6 @@ impl PowerPlant {
 }
 
 // Mine
-#[derive(Clone)]
 pub struct Mine {
     blueprint: StructureBlueprint,
     resource: ResourceGroup,
@@ -417,7 +482,6 @@ impl Mine {
 }
 
 // Storage
-#[derive(Clone)]
 pub struct Storage {
     pub blueprint: StructureBlueprint,
 }
@@ -449,5 +513,59 @@ impl Storage {
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
         return &mut self.blueprint;
+    }
+}
+
+// Factory
+pub struct Factory {
+    blueprint: StructureBlueprint,
+    commodity: CommodityGroup,
+}
+
+impl Debug for Factory {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Factory {
+    pub fn new(commodity: CommodityGroup) -> Factory {
+        let energy_component = ComponentGroup::Energy {
+            component: EnergyComponent {
+                energy_out: 0,
+                energy_in: 15,
+            },
+        };
+
+        let resource_component = ComponentGroup::Resource {
+            component: ResourceComponent {
+                resource_out: 0,
+                resource_in: 100,
+            },
+        };
+
+        let storage_component = ComponentGroup::Storage {
+            component: StorageComponent::new(),
+        };
+
+        let mut components = HashMap::new();
+
+        components.insert(ComponentName::EnergyComponent, energy_component);
+        components.insert(ComponentName::ResourceComponent, resource_component);
+        components.insert(ComponentName::StorageComponent, storage_component);
+
+        let blueprint = StructureBlueprint { components };
+
+        return Factory {
+            blueprint,
+            commodity,
+        };
+    }
+
+    pub fn blueprint(&self) -> &StructureBlueprint {
+        return &self.blueprint;
+    }
+    pub fn commodity(&self) -> &CommodityGroup {
+        return &self.commodity;
     }
 }

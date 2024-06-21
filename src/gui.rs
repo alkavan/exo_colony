@@ -214,7 +214,7 @@ pub fn build_main_layout(area: Rect) -> Vec<Rect> {
 
 pub fn build_left_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
         .split(area);
 
     return layout;
@@ -267,11 +267,17 @@ pub fn draw_stats_widget(
     let position_content = format!("Position: ({}, {})", position.x, position.y);
     items.push(ListItem::new(position_content));
 
-    // Spacing
-    items.push(ListItem::new("------------------"));
-
-    for (resource, amount) in storage.list() {
+    // Resource list
+    items.push(ListItem::new("-[ Resources ]-"));
+    for (resource, amount) in storage.list_resources() {
         let content = format!("{:>10}: {}", resource.to_string(), amount);
+        items.push(ListItem::new(content));
+    }
+
+    // Commodity list
+    items.push(ListItem::new("-[ Commodities ]-"));
+    for (commodity, amount) in storage.list_commodities() {
+        let content = format!("{:>10}: {}", commodity.to_string(), amount);
         items.push(ListItem::new(content));
     }
 
@@ -399,6 +405,7 @@ pub fn draw_info_widget(
                         &ResourceGroup::Carbon,
                     )));
                 }
+                Structure::Factory { .. } => {}
             }
         }
     }
@@ -495,6 +502,7 @@ pub fn render_map(
                                 Structure::PowerPlant { .. } => 'P',
                                 Structure::Mine { .. } => 'M',
                                 Structure::Storage { .. } => 'S',
+                                Structure::Factory { .. } => 'F',
                             };
 
                             return Span::styled(char::from(structure_symbol).to_string(), style);
