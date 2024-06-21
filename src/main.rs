@@ -23,7 +23,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
-use crate::game::{MapController, ResourceGroup};
+use crate::game::{MapController, Resource};
 use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
 use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{Base, CommodityGroup, Factory, Storage};
@@ -56,10 +56,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // An object for player score keeping and updating.
     let storage_resources = vec![
-        ResourceGroup::Metal,
-        ResourceGroup::Mineral,
-        ResourceGroup::Gas,
-        ResourceGroup::Carbon,
+        Resource::Metal,
+        Resource::Mineral,
+        Resource::Gas,
+        Resource::Carbon,
     ];
 
     let storage_commodities = vec![
@@ -80,10 +80,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]);
 
     let mut resource_select = MineResourceSelect::new(vec![
-        ResourceGroup::Metal,
-        ResourceGroup::Mineral,
-        ResourceGroup::Carbon,
-        ResourceGroup::Gas,
+        Resource::Metal,
+        Resource::Mineral,
+        Resource::Carbon,
+        Resource::Gas,
     ]);
 
     let mut commodity_select = FactoryCommoditySelect::new(vec![

@@ -6,7 +6,7 @@ use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
-use crate::game::{Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup};
+use crate::game::{Flora, GameMap, MapObject, MapTile, ObjectManager, Position, Resource};
 
 use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{
@@ -124,13 +124,13 @@ impl MenuSelector<StructureGroup> for Menu {
 
 pub struct MineResourceSelect {
     selected: usize,
-    items: Vec<ResourceGroup>,
+    items: Vec<Resource>,
     selected_style: Style,
     default_style: Style,
 }
 
 impl MineResourceSelect {
-    pub fn new(items: Vec<ResourceGroup>) -> MineResourceSelect {
+    pub fn new(items: Vec<Resource>) -> MineResourceSelect {
         let selected = 0;
 
         let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
@@ -145,8 +145,8 @@ impl MineResourceSelect {
     }
 }
 
-impl MenuSelector<ResourceGroup> for MineResourceSelect {
-    fn selected(&self) -> ResourceGroup {
+impl MenuSelector<Resource> for MineResourceSelect {
+    fn selected(&self) -> Resource {
         return self.items[self.selected].clone();
     }
 
@@ -451,7 +451,7 @@ pub fn draw_commodity_select_widget(menu: &FactoryCommoditySelect) -> List {
     return list;
 }
 
-pub fn format_resource(resource_group: &ResourceGroup) -> String {
+pub fn format_resource(resource_group: &Resource) -> String {
     return format!(
         "{:<10}: {}",
         "Resource:".to_string(),
@@ -461,7 +461,7 @@ pub fn format_resource(resource_group: &ResourceGroup) -> String {
 
 pub fn format_resource_capacity(
     blueprint: &StructureBlueprint,
-    resource_group: &ResourceGroup,
+    resource_group: &Resource,
 ) -> String {
     let capacity = ResourceStorageTrait::capacity(blueprint, resource_group);
     let resource = ResourceStorageTrait::resource(blueprint, resource_group);

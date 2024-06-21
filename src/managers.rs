@@ -2,7 +2,7 @@ use std::collections::hash_map::{Iter, IterMut};
 use std::collections::HashMap;
 use std::ops::{AddAssign, SubAssign};
 
-use crate::game::{MapObject, Position, ResourceGroup};
+use crate::game::{MapObject, Position, Resource};
 use crate::structures::{
     BatteryTrait, CommodityGroup, CommodityOutputTrait, EnergyTrait, ResourceOutputTrait,
     ResourceRequire, ResourceStorageTrait, Structure,
@@ -204,23 +204,23 @@ impl EnergyManager {
 }
 
 pub struct ResourceManager {
-    resources: HashMap<ResourceGroup, u64>,
-    resources_deficit: HashMap<ResourceGroup, u64>,
+    resources: HashMap<Resource, u64>,
+    resources_deficit: HashMap<Resource, u64>,
     commodities: HashMap<CommodityGroup, u64>,
     commodities_deficit: HashMap<CommodityGroup, u64>,
 }
 
 impl ResourceManager {
     pub fn new(
-        resource_types: Vec<ResourceGroup>,
+        resource_types: Vec<Resource>,
         commodity_types: Vec<CommodityGroup>,
     ) -> ResourceManager {
-        let mut resources: HashMap<ResourceGroup, u64> = HashMap::new();
+        let mut resources: HashMap<Resource, u64> = HashMap::new();
         for resource_type in resource_types {
             resources.insert(resource_type, 0);
         }
 
-        let mut resources_deficit: HashMap<ResourceGroup, u64> = HashMap::new();
+        let mut resources_deficit: HashMap<Resource, u64> = HashMap::new();
         for resource_type in resources.keys().copied().collect::<Vec<_>>() {
             resources_deficit.insert(resource_type, 0);
         }
@@ -243,26 +243,26 @@ impl ResourceManager {
         };
     }
 
-    pub fn list_resources(&self) -> Iter<'_, ResourceGroup, u64> {
+    pub fn list_resources(&self) -> Iter<'_, Resource, u64> {
         return self.resources.iter();
     }
 
-    pub fn list_resources_mut(&mut self) -> IterMut<'_, ResourceGroup, u64> {
+    pub fn list_resources_mut(&mut self) -> IterMut<'_, Resource, u64> {
         return self.resources.iter_mut();
     }
 
-    pub fn has_resource(&self, resource_type: &ResourceGroup, amount: u64) -> bool {
+    pub fn has_resource(&self, resource_type: &Resource, amount: u64) -> bool {
         let available = self.resources.get(resource_type).unwrap();
         return *available > amount;
     }
 
-    pub fn deposit_resource(&mut self, resource_type: &ResourceGroup, amount: u64) -> u64 {
+    pub fn deposit_resource(&mut self, resource_type: &Resource, amount: u64) -> u64 {
         let stored = self.resources.get_mut(&resource_type).unwrap();
         stored.add_assign(amount);
         return stored.clone();
     }
 
-    pub fn withdraw_resource(&mut self, resource_type: &ResourceGroup, amount: u64) -> u64 {
+    pub fn withdraw_resource(&mut self, resource_type: &Resource, amount: u64) -> u64 {
         let stored = self.resources.get_mut(&resource_type).unwrap();
 
         if amount > *stored {
@@ -275,14 +275,14 @@ impl ResourceManager {
         return amount;
     }
 
-    fn add_resource_deficit(&mut self, resource_type: &ResourceGroup, amount: u64) {
+    fn add_resource_deficit(&mut self, resource_type: &Resource, amount: u64) {
         self.resources_deficit
             .get_mut(&resource_type)
             .unwrap()
             .add_assign(amount)
     }
 
-    pub fn get_resource_deficit(&self, resource_type: &ResourceGroup) -> u64 {
+    pub fn get_resource_deficit(&self, resource_type: &Resource) -> u64 {
         return self.resources_deficit.get(resource_type).unwrap().clone();
     }
 
@@ -382,7 +382,7 @@ impl ResourceManager {
                                 .unwrap()
                                 .iter()
                                 .all(|(required_resource, required_amount)| {
-                                    if *required_resource == ResourceGroup::Energy {
+                                    if *required_resource == Resource::Energy {
                                         return energy_manager.has_energy(required_amount.clone());
                                     }
 
@@ -391,7 +391,7 @@ impl ResourceManager {
 
                         if has_resources {
                             for (required_resource, required_amount) in requires.unwrap().iter() {
-                                if *required_resource == ResourceGroup::Energy {
+                                if *required_resource == Resource::Energy {
                                     energy_manager.withdraw(required_amount.clone());
                                     continue;
                                 }

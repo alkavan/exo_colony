@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 use std::ops::{AddAssign, Sub, SubAssign};
 
-use crate::game::ResourceGroup;
+use crate::game::Resource;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
@@ -69,25 +69,25 @@ pub trait ResourceOutputTrait {
 }
 
 pub struct ResourceStorageComponent {
-    pub capacity: HashMap<ResourceGroup, u64>,
-    pub resources: HashMap<ResourceGroup, u64>,
+    pub capacity: HashMap<Resource, u64>,
+    pub resources: HashMap<Resource, u64>,
 }
 
 impl ResourceStorageComponent {
     fn new() -> ResourceStorageComponent {
         let mut capacity = HashMap::new();
-        capacity.insert(ResourceGroup::Energy, 1000);
-        capacity.insert(ResourceGroup::Metal, 1000);
-        capacity.insert(ResourceGroup::Mineral, 1000);
-        capacity.insert(ResourceGroup::Carbon, 1000);
-        capacity.insert(ResourceGroup::Gas, 1000);
+        capacity.insert(Resource::Energy, 1000);
+        capacity.insert(Resource::Metal, 1000);
+        capacity.insert(Resource::Mineral, 1000);
+        capacity.insert(Resource::Carbon, 1000);
+        capacity.insert(Resource::Gas, 1000);
 
         let mut resources = HashMap::new();
-        resources.insert(ResourceGroup::Energy, 0);
-        resources.insert(ResourceGroup::Metal, 0);
-        resources.insert(ResourceGroup::Mineral, 0);
-        resources.insert(ResourceGroup::Carbon, 0);
-        resources.insert(ResourceGroup::Gas, 0);
+        resources.insert(Resource::Energy, 0);
+        resources.insert(Resource::Metal, 0);
+        resources.insert(Resource::Mineral, 0);
+        resources.insert(Resource::Carbon, 0);
+        resources.insert(Resource::Gas, 0);
 
         return ResourceStorageComponent {
             capacity,
@@ -95,36 +95,36 @@ impl ResourceStorageComponent {
         };
     }
 
-    fn capacity(&self, group: &ResourceGroup) -> u64 {
+    fn capacity(&self, group: &Resource) -> u64 {
         return self.capacity[&group];
     }
 
-    fn capacity_free(&self, group: &ResourceGroup) -> u64 {
+    fn capacity_free(&self, group: &Resource) -> u64 {
         return self.capacity[&group] - self.resources[&group];
     }
 
-    fn resource(&self, group: &ResourceGroup) -> u64 {
+    fn resource(&self, group: &Resource) -> u64 {
         return self.resources[&group];
     }
 
-    fn resource_mut(&mut self, group: &ResourceGroup) -> &mut u64 {
+    fn resource_mut(&mut self, group: &Resource) -> &mut u64 {
         return self.resources.get_mut(&group).unwrap();
     }
 
-    fn resource_add(&mut self, group: &ResourceGroup, amount: u64) {
+    fn resource_add(&mut self, group: &Resource, amount: u64) {
         self.resources.get_mut(group).unwrap().add_assign(amount);
     }
 
-    pub fn resources(&self) -> Vec<&ResourceGroup> {
+    pub fn resources(&self) -> Vec<&Resource> {
         return Vec::from_iter(self.resources.keys());
     }
 }
 
 pub trait ResourceStorageTrait {
-    fn capacity(&self, group: &ResourceGroup) -> u64;
-    fn resource(&self, group: &ResourceGroup) -> u64;
-    fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64;
-    fn resources(&self) -> Vec<&ResourceGroup>;
+    fn capacity(&self, group: &Resource) -> u64;
+    fn resource(&self, group: &Resource) -> u64;
+    fn resource_add(&mut self, group: &Resource, amount: u64) -> u64;
+    fn resources(&self) -> Vec<&Resource>;
 }
 
 pub struct CommodityOutputComponent {
@@ -193,11 +193,11 @@ pub trait CommodityStorageTrait {
 }
 
 pub struct ResourceRequireFactory {
-    pub requires: HashMap<ResourceGroup, u64>,
+    pub requires: HashMap<Resource, u64>,
 }
 
 pub trait ResourceRequire {
-    fn requires(&self) -> Option<&HashMap<ResourceGroup, u64>>;
+    fn requires(&self) -> Option<&HashMap<Resource, u64>>;
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
@@ -435,7 +435,7 @@ impl ResourceOutputTrait for StructureBlueprint {
 }
 
 impl ResourceStorageTrait for StructureBlueprint {
-    fn capacity(&self, group: &ResourceGroup) -> u64 {
+    fn capacity(&self, group: &Resource) -> u64 {
         match self.get_component(&ComponentName::ResourceStorageComponent) {
             ComponentGroup::ResourceStorage {
                 component: ResourceStorageComponent { capacity, .. },
@@ -444,7 +444,7 @@ impl ResourceStorageTrait for StructureBlueprint {
         }
     }
 
-    fn resource(&self, group: &ResourceGroup) -> u64 {
+    fn resource(&self, group: &Resource) -> u64 {
         match self.get_component(&ComponentName::ResourceStorageComponent) {
             ComponentGroup::ResourceStorage {
                 component: ResourceStorageComponent { resources, .. },
@@ -453,7 +453,7 @@ impl ResourceStorageTrait for StructureBlueprint {
         }
     }
 
-    fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64 {
+    fn resource_add(&mut self, group: &Resource, amount: u64) -> u64 {
         let component = self.get_component_mut(&ComponentName::ResourceStorageComponent);
 
         match component {
@@ -478,7 +478,7 @@ impl ResourceStorageTrait for StructureBlueprint {
         }
     }
 
-    fn resources(&self) -> Vec<&ResourceGroup> {
+    fn resources(&self) -> Vec<&Resource> {
         match self.get_component(&ComponentName::ResourceStorageComponent) {
             ComponentGroup::ResourceStorage { component } => component.resources(),
             _ => Vec::new(),
@@ -550,7 +550,7 @@ impl CommodityOutputTrait for StructureBlueprint {
 }
 
 impl ResourceRequire for StructureBlueprint {
-    fn requires(&self) -> Option<&HashMap<ResourceGroup, u64>> {
+    fn requires(&self) -> Option<&HashMap<Resource, u64>> {
         match self.get_component(&ComponentName::ResourceRequireComponent) {
             ComponentGroup::ResourceRequire {
                 component: ResourceRequireFactory { requires },
@@ -647,7 +647,7 @@ impl PowerPlant {
 // Mine
 pub struct Mine {
     blueprint: StructureBlueprint,
-    resource: ResourceGroup,
+    resource: Resource,
 }
 
 impl Debug for Mine {
@@ -657,7 +657,7 @@ impl Debug for Mine {
 }
 
 impl Mine {
-    pub fn new(resource: ResourceGroup) -> Mine {
+    pub fn new(resource: Resource) -> Mine {
         let energy_component = ComponentGroup::Energy {
             component: EnergyComponent {
                 energy_out: 0,
@@ -685,7 +685,7 @@ impl Mine {
     pub fn blueprint(&self) -> &StructureBlueprint {
         return &self.blueprint;
     }
-    pub fn resource(&self) -> &ResourceGroup {
+    pub fn resource(&self) -> &Resource {
         return &self.resource;
     }
 }
@@ -738,26 +738,26 @@ impl Storage {
 }
 
 impl ResourceRequireFactory {
-    fn for_commodity(commodity: &CommodityGroup) -> HashMap<ResourceGroup, u64> {
+    fn for_commodity(commodity: &CommodityGroup) -> HashMap<Resource, u64> {
         let mut requires = HashMap::new();
 
         match commodity {
             CommodityGroup::MetalPlate => {
-                requires.insert(ResourceGroup::Metal, 15);
-                requires.insert(ResourceGroup::Energy, 45);
+                requires.insert(Resource::Metal, 15);
+                requires.insert(Resource::Energy, 45);
             }
             CommodityGroup::MetalPipe => {
-                requires.insert(ResourceGroup::Metal, 5);
-                requires.insert(ResourceGroup::Energy, 20);
+                requires.insert(Resource::Metal, 5);
+                requires.insert(Resource::Energy, 20);
             }
             CommodityGroup::Gravel => {
-                requires.insert(ResourceGroup::Mineral, 20);
-                requires.insert(ResourceGroup::Energy, 40);
+                requires.insert(Resource::Mineral, 20);
+                requires.insert(Resource::Energy, 40);
             }
             CommodityGroup::Fuel => {
-                requires.insert(ResourceGroup::Mineral, 5);
-                requires.insert(ResourceGroup::Carbon, 35);
-                requires.insert(ResourceGroup::Energy, 120);
+                requires.insert(Resource::Mineral, 5);
+                requires.insert(Resource::Carbon, 35);
+                requires.insert(Resource::Energy, 120);
             }
         }
 

@@ -33,7 +33,7 @@ impl Position {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ResourceGroup {
+pub enum Resource {
     Energy,
     Metal,
     Mineral,
@@ -41,15 +41,15 @@ pub enum ResourceGroup {
     Carbon,
 }
 
-impl Display for ResourceGroup {
+impl Display for Resource {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "{:?}", self)
     }
 }
 
 #[derive(Clone)]
-pub struct Resource {
-    group: ResourceGroup,
+pub struct ResourceDeposit {
+    group: Resource,
     amount: u32,
 }
 
@@ -74,7 +74,7 @@ pub struct MapTile {
 }
 
 pub struct MapObject {
-    pub resource: Option<Resource>,
+    pub resource: Option<ResourceDeposit>,
     pub structure: Option<Structure>,
 }
 
