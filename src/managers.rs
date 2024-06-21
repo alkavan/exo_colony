@@ -402,6 +402,10 @@ impl ResourceManager {
             *deficit = 0;
         }
 
+        for (_, deficit) in self.manufactured_deficit.iter_mut() {
+            *deficit = 0;
+        }
+
         for (_, deficit) in self.commodities_deficit.iter_mut() {
             *deficit = 0;
         }
@@ -445,8 +449,46 @@ impl ResourceManager {
                         );
                     }
                 }
-                Structure::Refinery { .. } => {
-                    // TODO: implement resource collection
+                Structure::Refinery { structure } => {
+                    let component = structure
+                        .blueprint()
+                        .get_component(&ComponentName::RefineryOutputComponent);
+
+                    if let ComponentGroup::RefineryOutput { component } = component {
+                        let energy_required = component.resource_required_sum();
+                        let has_energy = energy_manager.has_energy(energy_required);
+
+                        let has_resources = component.resources().all(|(_, required_map)| {
+                            required_map.iter().all(|(resource, required_amount)| {
+                                self.has_resource(resource, required_amount.clone())
+                            })
+                        });
+
+                        if has_energy && has_resources {
+                            energy_manager.withdraw(energy_required);
+
+                            for (_, required) in component.resources() {
+                                for (resource, required_amount) in required {
+                                    self.withdraw_resource(resource, required_amount.clone());
+                                }
+                            }
+
+                            for manufactured in structure.resources() {
+                                self.deposit_manufactured(
+                                    manufactured,
+                                    component.manufactured_out[manufactured],
+                                );
+                            }
+                        } else {
+                            for manufactured in structure.resources() {
+                                // if we don't have required resource to produce commodity we add to deficit
+                                self.add_manufactured_deficit(
+                                    manufactured,
+                                    component.manufactured_out[manufactured],
+                                )
+                            }
+                        }
+                    }
                 }
                 Structure::Factory { structure } => {
                     let component = structure

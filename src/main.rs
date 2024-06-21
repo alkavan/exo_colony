@@ -258,6 +258,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                             &structure_group,
                                             object,
                                             &resource_manager,
+                                            &refinery_select,
                                             &factory_select,
                                         );
 

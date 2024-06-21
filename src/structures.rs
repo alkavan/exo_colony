@@ -9,6 +9,7 @@ use crate::component::{
 use crate::game::{Commodity, Flora, Manufactured, MapObject, MapTile, Resource};
 use crate::gui::MenuSelector;
 use crate::managers::ResourceManager;
+use std::slice::Iter;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
@@ -743,7 +744,7 @@ impl Refinery {
             );
         }
 
-        let commodity_component = ComponentGroup::RefineryOutput {
+        let refinery_component = ComponentGroup::RefineryOutput {
             component: RefineryOutputComponent {
                 manufactured_out,
                 energy_required,
@@ -753,7 +754,7 @@ impl Refinery {
 
         let mut components = HashMap::new();
         components.insert(ComponentName::EnergyComponent, energy_component);
-        components.insert(ComponentName::FactoryOutputComponent, commodity_component);
+        components.insert(ComponentName::RefineryOutputComponent, refinery_component);
 
         let blueprint = StructureBlueprint { components };
 
@@ -771,8 +772,8 @@ impl Refinery {
         return &mut self.blueprint;
     }
 
-    pub fn resources(&self) {
-        self.resources.iter();
+    pub fn resources(&self) -> Iter<'_, Manufactured> {
+        self.resources.iter()
     }
 }
 
@@ -783,7 +784,8 @@ impl StructureFactory {
         group: &StructureGroup,
         object: Option<&MapObject>,
         resource_manager: &ResourceManager,
-        commodity_select: &dyn MenuSelector<Commodity>,
+        refinery_select: &dyn MenuSelector<Vec<Manufactured>>,
+        factory_select: &dyn MenuSelector<Commodity>,
     ) -> Option<Structure> {
         match group {
             StructureGroup::Base => {
@@ -812,13 +814,13 @@ impl StructureFactory {
             }
             StructureGroup::Refinery => {
                 let structure = Structure::Refinery {
-                    structure: Refinery::new(vec![Manufactured::Hydrogen, Manufactured::Oxygen]),
+                    structure: Refinery::new(refinery_select.selected()),
                 };
                 Option::from(structure)
             }
             StructureGroup::Factory => {
                 let structure = Structure::Factory {
-                    structure: { Factory::new(commodity_select.selected()) },
+                    structure: { Factory::new(factory_select.selected()) },
                 };
                 Option::from(structure)
             }

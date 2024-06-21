@@ -115,6 +115,10 @@ impl RefineryOutputComponent {
     pub fn resources(&self) -> Iter<'_, Manufactured, HashMap<Resource, u64>> {
         self.resource_required.iter()
     }
+
+    pub fn resource_required_sum(&self) -> u64 {
+        self.energy_required.values().sum()
+    }
 }
 
 impl CommodityStorageComponent {
