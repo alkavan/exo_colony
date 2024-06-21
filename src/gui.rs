@@ -5,8 +5,10 @@ use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
-use crate::game::{Flora, GameMap, MapTile, Position, ResourceStorage};
-use crate::structures::{Structure, StructureGroup};
+use crate::game::{
+    Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup, ResourceManager,
+};
+use crate::structures::{StorageTrait, Structure, StructureBlueprint, StructureGroup};
 
 #[derive(Clone, Copy)]
 pub enum BlockType {
@@ -148,7 +150,7 @@ pub fn build_container_block(title: String) -> Block<'static> {
 }
 
 pub fn draw_stats_widget(
-    storage: &ResourceStorage,
+    storage: &ResourceManager,
     position: Position,
     elapsed: Duration,
     update_delta: u128,
@@ -169,7 +171,7 @@ pub fn draw_stats_widget(
     // Spacing
     items.push(ListItem::new("------------------"));
 
-    for (resource, amount) in storage.list().iter() {
+    for (resource, amount) in storage.list() {
         let content = format!("{}: {}", resource, amount);
         items.push(ListItem::new(content));
     }
@@ -217,7 +219,23 @@ pub fn draw_build_menu_widget(menu: &Menu) -> List {
     return list;
 }
 
-pub fn draw_info_widget(position: Position, tile: MapTile) -> List<'static> {
+pub fn format_resource(blueprint: &StructureBlueprint, resource_group: &ResourceGroup) -> String {
+    let capacity = blueprint.capacity(resource_group);
+    let resource = blueprint.resource(resource_group);
+
+    return format!(
+        "{:<10} ({} / {})",
+        resource_group.to_string(),
+        resource,
+        capacity
+    );
+}
+
+pub fn draw_info_widget(
+    position: Position,
+    tile: &MapTile,
+    object: Option<&MapObject>,
+) -> List<'static> {
     let block = build_container_block("Info".to_string());
 
     let tile_content = format!("Tile({}, {}):", position.x, position.y);
@@ -225,9 +243,42 @@ pub fn draw_info_widget(position: Position, tile: MapTile) -> List<'static> {
 
     let mut items = vec![ListItem::new(tile_content), ListItem::new(flora_content)];
 
-    if tile.structure.is_some() {
-        let structure_content = format!("Structure: {}", tile.structure.unwrap());
-        items.push(ListItem::new(structure_content));
+    if object.is_some() {
+        let structure = object.unwrap().structure.as_ref();
+
+        if structure.is_some() {
+            let structure = structure.unwrap();
+            let structure_content = format!("Structure: {}", structure.to_string());
+            items.push(ListItem::new(structure_content));
+
+            match structure {
+                Structure::Base { .. } => {}
+                Structure::PowerPlant { .. } => {}
+                Structure::Mine { .. } => {}
+                Structure::Storage { ref structure } => {
+                    items.push(ListItem::new(format_resource(
+                        structure.blueprint(),
+                        &ResourceGroup::Energy,
+                    )));
+                    items.push(ListItem::new(format_resource(
+                        structure.blueprint(),
+                        &ResourceGroup::Metal,
+                    )));
+                    items.push(ListItem::new(format_resource(
+                        structure.blueprint(),
+                        &ResourceGroup::Mineral,
+                    )));
+                    items.push(ListItem::new(format_resource(
+                        structure.blueprint(),
+                        &ResourceGroup::Gas,
+                    )));
+                    items.push(ListItem::new(format_resource(
+                        structure.blueprint(),
+                        &ResourceGroup::Carbon,
+                    )));
+                }
+            }
+        }
     }
 
     let list = List::new(items)
@@ -237,7 +288,11 @@ pub fn draw_info_widget(position: Position, tile: MapTile) -> List<'static> {
     return list;
 }
 
-pub fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static>> {
+pub fn render_map(
+    map: &GameMap,
+    objects: &ObjectManager,
+    position: Position,
+) -> Vec<Spans<'static>> {
     let y = position.y as usize;
     let x = position.x as usize;
 
@@ -307,13 +362,21 @@ pub fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static>> {
                         Flora::Rock => BlockType::Light,
                     };
 
-                    if tile.structure.is_some() {
-                        let structure_symbol = match tile.structure.as_ref().unwrap() {
-                            Structure::PowerPlant { .. } => 'P',
-                            Structure::Mine { .. } => 'M',
-                        };
+                    let position = Position::new(j as i16, i as i16);
+                    let object = objects.get(&position);
 
-                        return Span::styled(char::from(structure_symbol).to_string(), style);
+                    if object.is_some() {
+                        let structure = object.unwrap().structure.as_ref();
+                        if structure.is_some() {
+                            let structure_symbol = match structure.unwrap() {
+                                Structure::Base { .. } => 'B',
+                                Structure::PowerPlant { .. } => 'P',
+                                Structure::Mine { .. } => 'M',
+                                Structure::Storage { .. } => 'S',
+                            };
+
+                            return Span::styled(char::from(structure_symbol).to_string(), style);
+                        }
                     }
 
                     return Span::styled(char::from(block_symbol).to_string(), style);

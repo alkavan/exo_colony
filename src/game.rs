@@ -1,5 +1,5 @@
-use crate::structures::{Structure, StructureGroup, StructureGroupTrait};
-use std::borrow::Borrow;
+use crate::structures::{Structure, StructureGroup};
+use std::collections::hash_map::{Iter, IterMut};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
 use worldgen::noise::perlin::PerlinNoise;
@@ -7,6 +7,8 @@ use worldgen::noisemap::{NoiseMap, NoiseMapGenerator, Seed, Step};
 use worldgen::world::tile::Constraint;
 use worldgen::world::tile::ConstraintType;
 use worldgen::world::{Size, Tile, World};
+
+type WorldCache = Vec<Vec<MapTile>>;
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Position {
@@ -64,44 +66,79 @@ impl Display for Flora {
     }
 }
 
-pub struct ResourceStorage {
-    map: HashMap<ResourceGroup, f64>,
+pub struct ResourceManager {
+    resources: HashMap<ResourceGroup, u64>,
 }
 
-impl ResourceStorage {
-    pub fn new(resources: Vec<ResourceGroup>) -> ResourceStorage {
-        let mut map: HashMap<ResourceGroup, f64> = HashMap::new();
+impl ResourceManager {
+    pub fn new(resource_types: Vec<ResourceGroup>) -> ResourceManager {
+        let mut resources: HashMap<ResourceGroup, u64> = HashMap::new();
 
-        for resource_type in resources {
-            map.insert(resource_type, 0.0);
+        for resource_type in resource_types {
+            resources.insert(resource_type, 0);
         }
 
-        return ResourceStorage { map };
+        return ResourceManager { resources };
     }
 
-    pub fn list(&self) -> &HashMap<ResourceGroup, f64> {
-        return &self.map;
+    pub fn list(&self) -> Iter<'_, ResourceGroup, u64> {
+        return self.resources.iter();
     }
 
-    pub fn add(&mut self, resource_type: ResourceGroup, value: f64) {
-        *self.map.get_mut(&resource_type).unwrap() += value;
+    pub fn list_mut(&mut self) -> IterMut<'_, ResourceGroup, u64> {
+        return self.resources.iter_mut();
+    }
+
+    pub fn deposit(&mut self, resource_type: &ResourceGroup, value: u64) {
+        *self.resources.get_mut(&resource_type).unwrap() += value;
+    }
+
+    pub fn withdraw(&mut self, resource_type: &ResourceGroup, value: u64) {
+        *self.resources.get_mut(&resource_type).unwrap() -= value;
     }
 }
 
 #[derive(Clone)]
 pub struct MapTile {
     pub flora: Flora,
+}
+
+pub struct MapObject {
     pub resource: Option<Resource>,
     pub structure: Option<Structure>,
 }
 
-impl MapTile {
-    pub fn new(flora: Flora, resource: Option<Resource>, structure: Option<Structure>) -> MapTile {
-        return MapTile {
-            flora,
-            resource,
-            structure,
-        };
+pub struct ObjectManager {
+    objects: HashMap<Position, MapObject>,
+}
+
+impl ObjectManager {
+    pub fn new() -> ObjectManager {
+        let objects = HashMap::new();
+        ObjectManager { objects }
+    }
+    pub fn get(&self, position: &Position) -> Option<&MapObject> {
+        self.objects.get(position)
+    }
+
+    pub fn get_mut(&mut self, position: &Position) -> Option<&mut MapObject> {
+        self.objects.get_mut(position)
+    }
+
+    pub fn set(&mut self, position: Position, object: MapObject) -> Option<MapObject> {
+        self.objects.insert(position, object)
+    }
+
+    pub fn remove(&mut self, position: &Position) -> Option<MapObject> {
+        self.objects.remove(&position)
+    }
+
+    pub fn list(&self) -> Iter<'_, Position, MapObject> {
+        return self.objects.iter();
+    }
+
+    pub fn list_mut(&mut self) -> IterMut<'_, Position, MapObject> {
+        return self.objects.iter_mut();
     }
 }
 
@@ -109,15 +146,9 @@ pub struct MapTileFactory {}
 
 impl MapTileFactory {
     pub fn new(flora: Flora) -> MapTile {
-        return MapTile {
-            flora,
-            resource: Option::None,
-            structure: Option::None,
-        };
+        return MapTile { flora };
     }
 }
-
-type WorldCache = Vec<Vec<MapTile>>;
 
 pub struct GameMap {
     width: u16,
@@ -177,12 +208,6 @@ impl GameMap {
         return self.cache.as_ref().unwrap();
     }
 
-    pub fn set_structure(&mut self, x: usize, y: usize, structure: Structure) {
-        self.cache.as_mut().unwrap()[y][x]
-            .structure
-            .replace(structure);
-    }
-
     pub fn width(&self) -> u16 {
         return self.width;
     }
@@ -194,6 +219,7 @@ impl GameMap {
 
 pub struct MapController {
     map: GameMap,
+    objects: ObjectManager,
     position: Position,
     locations: HashMap<Position, StructureGroup>,
 }
@@ -205,10 +231,13 @@ impl MapController {
 
         let map = GameMap::new(w, h);
 
+        let objects = ObjectManager::new();
+
         let locations = HashMap::new();
 
         return MapController {
             map,
+            objects,
             position,
             locations,
         };
@@ -218,38 +247,64 @@ impl MapController {
         return &self.map;
     }
 
-    pub fn map_mut(&mut self) -> &mut GameMap {
-        return &mut self.map;
-    }
-
     pub fn locations(&self) -> &HashMap<Position, StructureGroup> {
         return &self.locations;
     }
 
+    pub fn objects(&self) -> &ObjectManager {
+        return &self.objects;
+    }
+
+    pub fn objects_mut(&mut self) -> &mut ObjectManager {
+        return &mut self.objects;
+    }
+
+    pub fn add_object(&mut self, position: Position, object: MapObject) -> Option<MapObject> {
+        self.objects.set(position, object)
+    }
+
+    pub fn remove_object(&mut self, position: &Position) -> Option<MapObject> {
+        self.objects.remove(position)
+    }
+
     pub fn add_structure(&mut self, structure: Structure) {
-        let group = structure.group();
-        let position = self.position();
-        self.map
-            .set_structure(position.x as usize, position.y as usize, structure);
-        self.locations.insert(position, group);
+        let position = self.position().clone();
+
+        let object = MapObject {
+            structure: Option::from(structure),
+            resource: Option::None,
+        };
+
+        self.add_object(position, object);
     }
 
     pub fn position(&self) -> Position {
         return self.position.clone();
     }
 
-    pub fn tile(&self) -> MapTile {
+    pub fn tile(&self) -> &MapTile {
         let x = self.position.x as usize;
         let y = self.position.y as usize;
 
-        return self.map.cache.borrow().as_ref().unwrap()[y][x].clone();
+        return &self.map.cache.as_ref().unwrap()[y][x];
     }
 
-    pub fn tile_at(&self, position: Position) -> MapTile {
+    pub fn tile_at(&self, position: Position) -> &MapTile {
         let x = position.x as usize;
         let y = position.y as usize;
 
-        return self.map.cache.borrow().as_ref().unwrap()[y][x].clone();
+        return &self.map.cache.as_ref().unwrap()[y][x];
+    }
+
+    pub fn tile_at_mut(&mut self, position: Position) -> &mut MapTile {
+        let x = position.x as usize;
+        let y = position.y as usize;
+
+        return &mut self.map.cache.as_mut().unwrap()[y][x];
+    }
+
+    pub fn object(&self) -> Option<&MapObject> {
+        return self.objects.get(&self.position);
     }
 
     pub fn up(&mut self) {

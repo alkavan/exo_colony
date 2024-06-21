@@ -22,13 +22,14 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
-use crate::game::{MapController, ResourceGroup, ResourceStorage};
+use crate::game::{MapController, ResourceGroup, ResourceManager};
 use crate::gui::Menu;
-use crate::structures::{EnergyTrait, ResourceTrait};
+use crate::structures::{Base, EnergyTrait, ResourceTrait, Storage, StorageTrait};
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
 use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
+use std::ops::SubAssign;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout();
@@ -51,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut draw_tick = Tick::new();
 
     // An object for player score keeping and updating.
-    let mut resource_storage = ResourceStorage::new(vec![
+    let mut resource_manager = ResourceManager::new(vec![
         ResourceGroup::Energy,
         ResourceGroup::Metal,
         ResourceGroup::Mineral,
@@ -88,7 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let right_layout = gui::build_right_layout(main_layout[2]);
 
             let stats_widget = gui::draw_stats_widget(
-                &resource_storage,
+                &resource_manager,
                 controller.position(),
                 elapsed,
                 update_tick.delta(),
@@ -103,7 +104,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             let build_menu = gui::draw_build_menu_widget(&menu);
             frame.render_widget(build_menu, right_layout[0]);
 
-            let info_panel = gui::draw_info_widget(controller.position(), controller.tile());
+            let info_panel = gui::draw_info_widget(
+                controller.position(),
+                controller.tile(),
+                controller.object(),
+            );
             frame.render_widget(info_panel, right_layout[1]);
 
             let map_block = gui::draw_map_block();
@@ -120,30 +125,47 @@ fn main() -> Result<(), Box<dyn Error>> {
         match game_event {
             // When we get the draw event, we'll update the game map.
             // Map will not be drawn every loop iteration.
-            GameEvent::Draw => {
-                let map_text = gui::render_map(controller.map(), controller.position());
-                map_widget = Option::from(gui::draw_map_widget(&map_text));
-                draw_tick.update(&elapsed);
-            }
             GameEvent::Update => {
-                for (position, group) in controller.locations() {
-                    let structure = controller.tile_at(position.clone()).structure.unwrap();
+                let objects = controller.objects_mut().list_mut();
 
-                    let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
+                for (position, object) in objects {
+                    // let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
+
+                    let structure = object.structure.as_mut().unwrap();
 
                     match structure {
-                        Structure::PowerPlant { structure } => resource_storage.add(
-                            ResourceGroup::Energy,
-                            structure.blueprint().energy_out() as f64 * time_factor,
+                        Structure::PowerPlant { structure } => resource_manager
+                            .deposit(&ResourceGroup::Energy, structure.blueprint().energy_out()),
+                        Structure::Mine { structure } => resource_manager.deposit(
+                            &ResourceGroup::Mineral,
+                            structure.blueprint().resource_out(),
                         ),
-                        Structure::Mine { structure } => resource_storage.add(
-                            ResourceGroup::Mineral,
-                            structure.blueprint().resource_out() as f64 * time_factor,
-                        ),
+                        Structure::Base { structure } => resource_manager
+                            .deposit(&ResourceGroup::Energy, structure.blueprint().energy_out()),
+                        Structure::Storage { ref mut structure } => {
+                            for (resource, amount) in resource_manager.list_mut() {
+                                if *amount > 0 {
+                                    let amount_stored = structure
+                                        .blueprint_mut()
+                                        .resource_add(resource, amount.clone());
+
+                                    amount.sub_assign(amount_stored);
+                                }
+                            }
+                        }
                     }
                 }
 
                 update_tick.update(&elapsed);
+            }
+            GameEvent::Draw => {
+                let map_text = gui::render_map(
+                    controller.map(),
+                    controller.objects(),
+                    controller.position(),
+                );
+                map_widget = Option::from(gui::draw_map_widget(&map_text));
+                draw_tick.update(&elapsed);
             }
             GameEvent::Input => {
                 if poll(Duration::from_millis(0))? {
@@ -157,8 +179,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 KeyCode::Backspace => {}
                                 KeyCode::Enter => {
                                     let structure = match menu.selected() {
-                                        StructureGroup::Base => Structure::PowerPlant {
-                                            structure: PowerPlant::new(),
+                                        StructureGroup::Base => Structure::Base {
+                                            structure: Base::new(),
                                         },
                                         StructureGroup::Energy => Structure::PowerPlant {
                                             structure: PowerPlant::new(),
@@ -166,8 +188,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                                         StructureGroup::Mine => Structure::Mine {
                                             structure: Mine::new(),
                                         },
-                                        StructureGroup::Storage => Structure::PowerPlant {
-                                            structure: PowerPlant::new(),
+                                        StructureGroup::Storage => Structure::Storage {
+                                            structure: Storage::new(),
                                         },
                                         StructureGroup::Factory => Structure::PowerPlant {
                                             structure: PowerPlant::new(),
