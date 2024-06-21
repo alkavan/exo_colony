@@ -21,7 +21,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
-use crate::game::{MapController, ResourceGroup, ResourceStorage};
+use crate::game::{MapController, PowerPlant, ResourceGroup, ResourceStorage, Structure};
 use crate::gui::Menu;
 use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
@@ -85,7 +85,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let stats_widget = gui::draw_stats_widget(
                 &resource_storage,
                 controller.position(),
-                controller.tile(),
                 elapsed,
                 update_tick.delta(),
                 draw_tick.delta(),
@@ -134,7 +133,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                             // log_buffer.push_str(&log);
                             match event.code {
                                 KeyCode::Backspace => {}
-                                KeyCode::Enter => {}
+                                KeyCode::Enter => {
+                                    let x = controller.position().x as usize;
+                                    let y = controller.position().y as usize;
+
+                                    let power_plant = Structure::PowerPlant {
+                                        blueprint: PowerPlant::new(),
+                                    };
+
+                                    controller.map_mut().set_structure(x, y, power_plant);
+                                }
                                 KeyCode::Left => {}
                                 KeyCode::Right => {}
                                 KeyCode::Up => {}

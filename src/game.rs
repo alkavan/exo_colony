@@ -103,25 +103,96 @@ impl MapTile {
     }
 }
 
-#[derive(Clone)]
+pub struct MapTileFactory {}
+
+impl MapTileFactory {
+    pub fn new(flora: Flora) -> MapTile {
+        return MapTile {
+            flora,
+            resource: Option::None,
+            structure: Option::None,
+        };
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum StructureGroup {
     Base,
-    PowerPlant,
+    Energy,
     Mine,
     Storage,
     Factory,
 }
 
-#[derive(Clone)]
-pub struct Structure {
-    group: StructureGroup,
+impl Display for StructureGroup {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
+    }
 }
 
+#[derive(Clone)]
+pub enum ComponentGroup {
+    Energy { energy_in: f64, energy_out: f64 },
+}
+
+trait EnergyTrait {
+    fn energy_in(&self) -> f64;
+    fn energy_out(&self) -> f64;
+}
+
+pub struct EnergyComponent {
+    energy_in: f64,
+    energy_out: f64,
+}
+
+#[derive(Clone, Debug)]
+pub enum Structure {
+    PowerPlant { blueprint: PowerPlant },
+}
+
+impl Display for Structure {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        let name = match self {
+            Structure::PowerPlant { .. } => "Power Plant",
+        };
+        write!(f, "{:?}", name)
+    }
+}
+
+#[derive(Clone)]
 pub struct PowerPlant {
-    structure: Structure,
-    energy_in: u32,
-    energy_out: u32,
-    energy_acc: u32,
+    group: StructureGroup,
+    components: Vec<ComponentGroup>,
+}
+
+impl Debug for PowerPlant {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl PowerPlant {
+    pub fn new() -> PowerPlant {
+        let group = StructureGroup::Energy;
+        let energy_component = ComponentGroup::Energy {
+            energy_in: 0.0,
+            energy_out: 0.0,
+        };
+
+        let components = vec![energy_component];
+
+        return PowerPlant { group, components };
+    }
+}
+
+impl EnergyTrait for PowerPlant {
+    fn energy_in(&self) -> f64 {
+        unimplemented!()
+    }
+
+    fn energy_out(&self) -> f64 {
+        unimplemented!()
+    }
 }
 
 type WorldCache = Vec<Vec<MapTile>>;
@@ -145,13 +216,13 @@ impl GameMap {
             .set_seed(Seed::of("!GooToo"))
             .set_step(Step::of(0.05, 0.05));
 
-        let nm = Box::new(nm1 + nm2 * 3);
+        let nm = Box::new(nm1 + nm2 * 4);
 
-        let water_tile = MapTile::new(Flora::Water, Option::None, Option::None);
-        let sand_tile = MapTile::new(Flora::Sand, Option::None, Option::None);
-        let grass_tile = MapTile::new(Flora::Grass, Option::None, Option::None);
-        let dirt_tile = MapTile::new(Flora::Dirt, Option::None, Option::None);
-        let rock_tile = MapTile::new(Flora::Rock, Option::None, Option::None);
+        let water_tile = MapTileFactory::new(Flora::Water);
+        let sand_tile = MapTileFactory::new(Flora::Sand);
+        let grass_tile = MapTileFactory::new(Flora::Grass);
+        let dirt_tile = MapTileFactory::new(Flora::Dirt);
+        let rock_tile = MapTileFactory::new(Flora::Rock);
 
         let world = World::new()
             .set(Size::of(width as i64, height as i64))
@@ -184,6 +255,12 @@ impl GameMap {
         return self.cache.as_ref().unwrap();
     }
 
+    pub fn set_structure(&mut self, x: usize, y: usize, structure: Structure) {
+        self.cache.as_mut().unwrap()[y][x]
+            .structure
+            .replace(structure);
+    }
+
     pub fn width(&self) -> u16 {
         return self.width;
     }
@@ -210,6 +287,10 @@ impl MapController {
 
     pub fn map(&self) -> &GameMap {
         return &self.map;
+    }
+
+    pub fn map_mut(&mut self) -> &mut GameMap {
+        return &mut self.map;
     }
 
     pub fn position(&self) -> Position {

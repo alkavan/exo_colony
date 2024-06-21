@@ -142,13 +142,12 @@ pub fn build_container_block(title: String) -> Block<'static> {
 pub fn draw_stats_widget(
     storage: &ResourceStorage,
     position: Position,
-    tile: MapTile,
     elapsed: Duration,
     update_delta: u128,
     draw_delta: u128,
 ) -> List<'static> {
     let time = format!(
-        "Time: {:.1} (update: {}) (draw: {})",
+        "Time: {:.1} (update: {} ms) (draw: {} ms)",
         elapsed.as_secs_f32(),
         update_delta,
         draw_delta
@@ -159,8 +158,8 @@ pub fn draw_stats_widget(
     let position_content = format!("Position: ({}, {})", position.x, position.y);
     items.push(ListItem::new(position_content));
 
-    let title_content = format!("Tile: [Flora: {}]", tile.flora);
-    items.push(ListItem::new(title_content));
+    // Spacing
+    items.push(ListItem::new("------------------"));
 
     for (resource, amount) in storage.list().iter() {
         let content = format!("{}: {}", resource, amount);
@@ -217,6 +216,11 @@ pub fn draw_info_widget(position: Position, tile: MapTile) -> List<'static> {
     let flora_content = format!("Flora: {}", tile.flora);
 
     let mut items = vec![ListItem::new(tile_content), ListItem::new(flora_content)];
+
+    if tile.structure.is_some() {
+        let structure_content = format!("Structure: {}", tile.structure.unwrap());
+        items.push(ListItem::new(structure_content));
+    }
 
     let list = List::new(items)
         .block(block)
@@ -308,7 +312,7 @@ pub fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static>> {
 pub fn draw_map_widget(text: &Vec<Spans<'static>>) -> Paragraph<'static> {
     let p = Paragraph::new(text.clone())
         .block(Block::default().borders(Borders::NONE))
-        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .style(Style::default().bg(Color::Rgb(0, 0, 0)))
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: true });
 
