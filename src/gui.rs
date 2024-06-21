@@ -29,6 +29,14 @@ impl From<BlockType> for char {
     }
 }
 
+pub trait MenuSelector<T> {
+    fn selected(&self) -> T;
+    fn items(&self) -> Vec<ListItem>;
+    fn next(&mut self);
+    fn previous(&mut self);
+    fn style(&self, name: String, index: usize) -> Span;
+}
+
 pub struct Menu {
     items: Vec<StructureGroup>,
     selected: usize,
@@ -38,9 +46,10 @@ pub struct Menu {
 
 impl Menu {
     pub fn new(items: Vec<StructureGroup>) -> Menu {
+        let selected = 0;
+
         let selected_style = Style::default().bg(Color::Red).fg(Color::White);
         let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
-        let selected = 0;
 
         Menu {
             items,
@@ -49,28 +58,20 @@ impl Menu {
             default_style,
         }
     }
+}
 
-    fn get_item_span(&self, name: String, index: usize) -> Span {
-        let style = if index == self.selected {
-            self.selected_style
-        } else {
-            self.default_style
-        };
-
-        return Span::styled(name, style);
-    }
-
-    pub fn selected(&self) -> StructureGroup {
+impl MenuSelector<StructureGroup> for Menu {
+    fn selected(&self) -> StructureGroup {
         return self.items[self.selected].clone();
     }
 
-    pub fn items(&self) -> Vec<ListItem> {
+    fn items(&self) -> Vec<ListItem> {
         let list = self
             .items
             .iter()
             .enumerate()
             .map(|(index, structure_group)| {
-                let content = self.get_item_span(structure_group.to_string(), index);
+                let content = self.style(structure_group.to_string(), index);
                 ListItem::new(content)
             })
             .collect();
@@ -78,7 +79,7 @@ impl Menu {
         return list;
     }
 
-    pub fn next(&mut self) {
+    fn next(&mut self) {
         if self.items.len() == 0 {
             return;
         }
@@ -91,7 +92,7 @@ impl Menu {
         self.selected += 1;
     }
 
-    pub fn previous(&mut self) {
+    fn previous(&mut self) {
         if self.items.len() == 0 {
             return;
         }
@@ -102,6 +103,95 @@ impl Menu {
         }
 
         self.selected -= 1;
+    }
+
+    fn style(&self, name: String, index: usize) -> Span {
+        let style = if index == self.selected {
+            self.selected_style
+        } else {
+            self.default_style
+        };
+
+        return Span::styled(name, style);
+    }
+}
+
+pub struct MineResourceSelect {
+    selected: usize,
+    items: Vec<ResourceGroup>,
+    selected_style: Style,
+    default_style: Style,
+}
+
+impl MineResourceSelect {
+    pub fn new(items: Vec<ResourceGroup>) -> MineResourceSelect {
+        let selected = 0;
+
+        let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
+        let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
+
+        return MineResourceSelect {
+            selected,
+            items,
+            selected_style,
+            default_style,
+        };
+    }
+}
+
+impl MenuSelector<ResourceGroup> for MineResourceSelect {
+    fn selected(&self) -> ResourceGroup {
+        return self.items[self.selected].clone();
+    }
+
+    fn items(&self) -> Vec<ListItem> {
+        let list = self
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, structure_group)| {
+                let content = self.style(structure_group.to_string(), index);
+                ListItem::new(content)
+            })
+            .collect();
+
+        return list;
+    }
+
+    fn next(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == self.items.len() - 1 {
+            self.selected = 0;
+            return;
+        }
+
+        self.selected += 1;
+    }
+
+    fn previous(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == 0 {
+            self.selected = self.items.len() - 1;
+            return;
+        }
+
+        self.selected -= 1;
+    }
+
+    fn style(&self, name: String, index: usize) -> Span {
+        let style = if index == self.selected {
+            self.selected_style
+        } else {
+            self.default_style
+        };
+
+        return Span::styled(name, style);
     }
 }
 
@@ -132,6 +222,15 @@ pub fn build_left_layout(area: Rect) -> Vec<Rect> {
 
 pub fn build_right_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(area);
+
+    return layout;
+}
+
+pub fn build_menu_layout(area: Rect) -> Vec<Rect> {
+    let layout = Layout::default()
+        .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(area);
 
@@ -209,8 +308,18 @@ pub fn draw_map_block() -> Block<'static> {
     return block;
 }
 
-pub fn draw_build_menu_widget(menu: &Menu) -> List {
+pub fn draw_structure_menu_widget(menu: &Menu) -> List {
     let block = build_container_block("Build Menu".to_string());
+
+    let list = List::new(menu.items())
+        .block(block)
+        .style(Style::default().fg(Color::White));
+
+    return list;
+}
+
+pub fn draw_resource_select_widget(menu: &MineResourceSelect) -> List {
+    let block = build_container_block("Resource Select".to_string());
 
     let list = List::new(menu.items())
         .block(block)

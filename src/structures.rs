@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter, Result};
 use crate::game::ResourceGroup;
 use std::ops::AddAssign;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
     Base,
     Energy,
@@ -261,7 +261,7 @@ impl StorageTrait for StructureBlueprint {
     }
 
     fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64 {
-        let mut component = self
+        let component = self
             .components
             .get_mut(&ComponentName::StorageComponent)
             .unwrap();
@@ -370,6 +370,7 @@ impl PowerPlant {
 #[derive(Clone)]
 pub struct Mine {
     blueprint: StructureBlueprint,
+    resource: ResourceGroup,
 }
 
 impl Debug for Mine {
@@ -379,7 +380,7 @@ impl Debug for Mine {
 }
 
 impl Mine {
-    pub fn new() -> Mine {
+    pub fn new(resource: ResourceGroup) -> Mine {
         let energy_component = ComponentGroup::Energy {
             component: EnergyComponent {
                 energy_out: 0,
@@ -401,11 +402,17 @@ impl Mine {
 
         let blueprint = StructureBlueprint { components };
 
-        return Mine { blueprint };
+        return Mine {
+            blueprint,
+            resource,
+        };
     }
 
     pub fn blueprint(&self) -> &StructureBlueprint {
         return &self.blueprint;
+    }
+    pub fn resource(&self) -> &ResourceGroup {
+        return &self.resource;
     }
 }
 

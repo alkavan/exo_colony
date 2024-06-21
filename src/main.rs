@@ -23,7 +23,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use worldgen::world::Size;
 
 use crate::game::{MapController, ResourceGroup, ResourceManager};
-use crate::gui::Menu;
+use crate::gui::{Menu, MenuSelector, MineResourceSelect};
 use crate::structures::{Base, EnergyTrait, ResourceTrait, Storage, StorageTrait};
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
@@ -68,6 +68,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         StructureGroup::Factory,
     ]);
 
+    let mut resource_select = MineResourceSelect::new(vec![
+        ResourceGroup::Metal,
+        ResourceGroup::Mineral,
+        ResourceGroup::Carbon,
+        ResourceGroup::Gas,
+    ]);
+
     // The game controller, work with the Map object.
     let mut controller = MapController::new(Size::of(90, 40));
 
@@ -87,6 +94,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let main_layout = gui::build_main_layout(frame.size());
             let left_layout = gui::build_left_layout(main_layout[0]);
             let right_layout = gui::build_right_layout(main_layout[2]);
+            let menu_layout = gui::build_menu_layout(right_layout[0]);
 
             let stats_widget = gui::draw_stats_widget(
                 &resource_manager,
@@ -101,8 +109,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             let console_widget = gui::draw_console_widget(&log_buffer);
             frame.render_widget(console_widget, left_layout[1]);
 
-            let build_menu = gui::draw_build_menu_widget(&menu);
-            frame.render_widget(build_menu, right_layout[0]);
+            let build_menu = gui::draw_structure_menu_widget(&menu);
+            frame.render_widget(build_menu, menu_layout[0]);
+
+            if menu.selected() == StructureGroup::Mine {
+                let resource_select_widget = gui::draw_resource_select_widget(&resource_select);
+                frame.render_widget(resource_select_widget, menu_layout[1]);
+            }
 
             let info_panel = gui::draw_info_widget(
                 controller.position(),
@@ -136,10 +149,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     match structure {
                         Structure::PowerPlant { structure } => resource_manager
                             .deposit(&ResourceGroup::Energy, structure.blueprint().energy_out()),
-                        Structure::Mine { structure } => resource_manager.deposit(
-                            &ResourceGroup::Mineral,
-                            structure.blueprint().resource_out(),
-                        ),
+                        Structure::Mine { structure } => resource_manager
+                            .deposit(structure.resource(), structure.blueprint().resource_out()),
                         Structure::Base { structure } => resource_manager
                             .deposit(&ResourceGroup::Energy, structure.blueprint().energy_out()),
                         Structure::Storage { ref mut structure } => {
@@ -186,7 +197,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                             structure: PowerPlant::new(),
                                         },
                                         StructureGroup::Mine => Structure::Mine {
-                                            structure: Mine::new(),
+                                            structure: Mine::new(resource_select.selected()),
                                         },
                                         StructureGroup::Storage => Structure::Storage {
                                             structure: Storage::new(),
@@ -210,8 +221,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 KeyCode::Down => {
                                     controller.down();
                                 }
-                                KeyCode::Home => {}
-                                KeyCode::End => {}
+                                KeyCode::Home => {
+                                    resource_select.previous();
+                                }
+                                KeyCode::End => {
+                                    resource_select.next();
+                                }
                                 KeyCode::PageUp => {
                                     menu.previous();
                                 }
