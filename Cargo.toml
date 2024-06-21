@@ -8,10 +8,11 @@ description = "A real-time simulation game about building a colony on an exo-pla
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crossterm = "0.24"
-tui = { version = "0.18", default-features = false, features = ['crossterm'] }
+crossterm = "0.27.0"
+termion = "4.0.0"
+tui = { version = "0.19.0", default-features = true, features = ['crossterm', 'termion'] }
 rand = "0.8"
 chrono = "0.4"
-itertools = "0.10"
+itertools = "0.13.0"
 worldgen = "0.5"
-encode_unicode = "0.3"
+encode_unicode = "1.0.0"
