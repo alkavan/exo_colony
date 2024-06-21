@@ -170,8 +170,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 StructureGroup::Base => {}
                 StructureGroup::Power => {}
                 StructureGroup::Mine => {
-                    let resource_select_widget = gui::draw_mine_select_widget(&mine_select);
-                    frame.render_widget(resource_select_widget, menu_layout[1]);
+                    // let resource_select_widget = gui::draw_mine_select_widget(&mine_select);
+                    // frame.render_widget(resource_select_widget, menu_layout[1]);
                 }
                 StructureGroup::Factory => {
                     let commodity_select_widget = gui::draw_factory_select_widget(&factory_select);
