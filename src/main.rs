@@ -80,6 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let stats_widget = gui::draw_stats_widget(
                 &resource_storage,
                 controller.position(),
+                controller.tile(),
                 elapsed,
                 update_tick.delta(),
                 draw_tick.delta(),

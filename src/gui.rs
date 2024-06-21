@@ -5,9 +5,7 @@ use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
-use encode_unicode::Utf8Char;
-
-use crate::game::{Flora, GameMap, Position, ResourceStorage};
+use crate::game::{Flora, GameMap, MapTile, Position, ResourceStorage};
 
 pub(crate) fn build_main_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()
@@ -38,6 +36,7 @@ pub(crate) fn build_container_block(title: String) -> Block<'static> {
 pub(crate) fn draw_stats_widget(
     storage: &ResourceStorage,
     position: Position,
+    tile: MapTile,
     elapsed: Duration,
     update_delta: u128,
     draw_delta: u128,
@@ -53,6 +52,9 @@ pub(crate) fn draw_stats_widget(
 
     let position_content = format!("Position: ({}, {})", position.x, position.y);
     items.push(ListItem::new(position_content));
+
+    let title_content = format!("Tile: [Flora: {}]", tile.flora);
+    items.push(ListItem::new(title_content));
 
     for (resource, amount) in storage.list().iter() {
         let content = format!("{}: {}", resource, amount);
@@ -100,15 +102,15 @@ pub(crate) fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static
     let y = position.y as usize;
     let x = position.x as usize;
 
-    let water_style = Style::default().bg(Color::LightBlue);
-    let sand_style = Style::default().bg(Color::LightYellow);
-    let dirt_style = Style::default().bg(Color::LightRed);
-    let grass_style = Style::default().bg(Color::LightGreen);
-    let rock_style = Style::default().bg(Color::Gray);
+    let water_style = Style::default().bg(Color::Blue);
+    let sand_style = Style::default().bg(Color::Yellow);
+    let dirt_style = Style::default().bg(Color::Red);
+    let grass_style = Style::default().bg(Color::Green);
+    let rock_style = Style::default().bg(Color::Black);
 
-    let selected_style = Style::default().bg(Color::Cyan);
+    let selected_style = Style::default().bg(Color::White);
 
-    let map_render = map.world().generate(0, 0).unwrap();
+    let map_render = map.cache();
 
     let text = map_render
         .iter()
@@ -159,11 +161,12 @@ pub(crate) fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static
                     };
 
                     let symbol = match tile.flora {
-                        Flora::Water => char::from('W'),
-                        Flora::Sand => char::from('░'),
-                        Flora::Dirt => char::from('▓'),
+                        Flora::Water => char::from('▒'),
+                        Flora::Sand => char::from('▒'),
+                        Flora::Dirt => char::from('▒'),
                         Flora::Grass => char::from('▒'),
-                        Flora::Rock => char::from('█'),
+                        Flora::Rock => char::from('▒'),
+                        // ░ , ▓ , ▒
                     };
 
                     return Span::styled(String::from(symbol), style);

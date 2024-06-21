@@ -1,8 +1,6 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::fmt::{Debug, Display, Formatter, Result};
-use tui::layout::Rect;
-use tui::style::Color;
 use worldgen::noise::perlin::PerlinNoise;
 use worldgen::noisemap::{NoiseMap, NoiseMapGenerator, Seed, Step};
 use worldgen::world::tile::Constraint;
@@ -64,12 +62,6 @@ impl Display for Flora {
     }
 }
 
-#[derive(Clone)]
-pub struct MapTile {
-    pub flora: Flora,
-    pub resource: Option<Resource>,
-}
-
 pub struct ResourceStorage {
     map: HashMap<ResourceGroup, u32>,
 }
@@ -94,10 +86,19 @@ impl ResourceStorage {
     }
 }
 
+#[derive(Clone)]
+pub struct MapTile {
+    pub flora: Flora,
+    pub resource: Option<Resource>,
+}
+
+type WorldCache = Vec<Vec<MapTile>>;
+
 pub struct GameMap {
     width: u16,
     height: u16,
     world: World<MapTile>,
+    cache: Option<WorldCache>,
 }
 
 impl GameMap {
@@ -148,15 +149,22 @@ impl GameMap {
             // Hills
             .add(Tile::new(dirt_tile));
 
+        let cache = world.generate(0, 0);
+
         return GameMap {
             width,
             height,
             world,
+            cache,
         };
     }
 
     pub fn world(&self) -> &World<MapTile> {
         return &self.world;
+    }
+
+    pub fn cache(&self) -> &WorldCache {
+        return self.cache.as_ref().unwrap();
     }
 
     pub fn width(&self) -> u16 {
@@ -187,8 +195,22 @@ impl MapController {
         return self.position.clone();
     }
 
+    pub fn tile(&self) -> MapTile {
+        let x = self.position.x as usize;
+        let y = self.position.y as usize;
+
+        return self.map.cache.borrow().as_ref().unwrap()[y][x].clone();
+    }
+
+    pub fn tile_at(&self, position: Position) -> MapTile {
+        let x = position.x as usize;
+        let y = position.y as usize;
+
+        return self.map.cache.borrow().as_ref().unwrap()[y][x].clone();
+    }
+
     pub fn up(&mut self) {
-        let mut y = self.position.y as u16;
+        let y = self.position.y as u16;
         if y > 0 {
             self.position.y((y - 1) as i16);
         }
@@ -209,7 +231,7 @@ impl MapController {
     }
 
     pub fn left(&mut self) {
-        let mut x = self.position.x as u16;
+        let x = self.position.x as u16;
         if x > 0 {
             self.position.x((x - 1) as i16);
         }
