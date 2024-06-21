@@ -23,10 +23,10 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use worldgen::world::Size;
 
 use crate::game::{MapController, ResourceGroup, ResourceManager};
-use crate::gui::{Menu, MenuSelector, MineResourceSelect};
+use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
 use crate::structures::{
-    Base, CommodityGroup, CommodityTrait, EnergyTrait, Factory, ResourceTrait, Storage,
-    StorageTrait,
+    Base, CommodityGroup, CommodityTrait, EnergyTrait, Factory, ResourceRequire, ResourceTrait,
+    Storage, StorageTrait,
 };
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
@@ -87,6 +87,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         ResourceGroup::Gas,
     ]);
 
+    let mut commodity_select = FactoryCommoditySelect::new(vec![
+        CommodityGroup::MetalPipe,
+        CommodityGroup::MetalPlate,
+        CommodityGroup::Gravel,
+        CommodityGroup::Fuel,
+    ]);
+
     // The game controller, work with the Map object.
     let mut controller = MapController::new(Size::of(90, 40));
 
@@ -124,9 +131,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             let build_menu = gui::draw_structure_menu_widget(&menu);
             frame.render_widget(build_menu, menu_layout[0]);
 
-            if menu.selected() == StructureGroup::Mine {
-                let resource_select_widget = gui::draw_resource_select_widget(&resource_select);
-                frame.render_widget(resource_select_widget, menu_layout[1]);
+            match menu.selected() {
+                StructureGroup::Base => {}
+                StructureGroup::Energy => {}
+                StructureGroup::Mine => {
+                    let resource_select_widget = gui::draw_resource_select_widget(&resource_select);
+                    frame.render_widget(resource_select_widget, menu_layout[1]);
+                }
+                StructureGroup::Storage => {}
+                StructureGroup::Factory => {
+                    let commodity_select_widget =
+                        gui::draw_commodity_select_widget(&commodity_select);
+                    frame.render_widget(commodity_select_widget, menu_layout[1]);
+                }
             }
 
             let info_panel = gui::draw_info_widget(
@@ -189,13 +206,24 @@ fn main() -> Result<(), Box<dyn Error>> {
                             }
                         }
                         Structure::Factory { structure } => {
-                            let resource_in = structure.blueprint().resource_in();
-                            if resource_manager
-                                .withdraw_resource(&ResourceGroup::Metal, resource_in)
-                            {
-                                let commodity_out = structure.blueprint().commodity_out();
-                                resource_manager
-                                    .deposit_commodity(structure.commodity(), commodity_out);
+                            // let resource_in = structure.blueprint().resource_in();
+                            let requires = structure.blueprint().requires();
+
+                            if requires.is_some() {
+                                let has_resources = requires.unwrap().iter().all(
+                                    |(required_resource, required_amount)| {
+                                        resource_manager.withdraw_resource(
+                                            required_resource,
+                                            required_amount.clone(),
+                                        )
+                                    },
+                                );
+
+                                if has_resources {
+                                    let commodity_out = structure.blueprint().commodity_out();
+                                    resource_manager
+                                        .deposit_commodity(structure.commodity(), commodity_out);
+                                }
                             }
                         }
                     }
@@ -237,7 +265,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                                             structure: Storage::new(),
                                         },
                                         StructureGroup::Factory => Structure::Factory {
-                                            structure: Factory::new(CommodityGroup::Fuel),
+                                            structure: {
+                                                Factory::new(commodity_select.selected())
+                                            },
                                         },
                                     };
 
@@ -255,12 +285,28 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 KeyCode::Down => {
                                     controller.down();
                                 }
-                                KeyCode::Home => {
-                                    resource_select.previous();
-                                }
-                                KeyCode::End => {
-                                    resource_select.next();
-                                }
+                                KeyCode::Home => match menu.selected() {
+                                    StructureGroup::Base => {}
+                                    StructureGroup::Energy => {}
+                                    StructureGroup::Mine => {
+                                        resource_select.previous();
+                                    }
+                                    StructureGroup::Storage => {}
+                                    StructureGroup::Factory => {
+                                        commodity_select.previous();
+                                    }
+                                },
+                                KeyCode::End => match menu.selected() {
+                                    StructureGroup::Base => {}
+                                    StructureGroup::Energy => {}
+                                    StructureGroup::Mine => {
+                                        resource_select.next();
+                                    }
+                                    StructureGroup::Storage => {}
+                                    StructureGroup::Factory => {
+                                        commodity_select.next();
+                                    }
+                                },
                                 KeyCode::PageUp => {
                                     menu.previous();
                                 }

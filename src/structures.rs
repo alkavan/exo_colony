@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
+use std::hash::Hash;
+use std::ops::AddAssign;
 
 use crate::game::ResourceGroup;
-use std::ops::AddAssign;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
@@ -33,7 +34,6 @@ impl Display for CommodityGroup {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
 pub struct EnergyComponent {
     pub energy_in: u64,
     pub energy_out: u64,
@@ -55,7 +55,6 @@ pub trait BatteryTrait {
     fn used(&self) -> u64;
 }
 
-#[derive(Hash, Eq, PartialEq)]
 pub struct ResourceComponent {
     pub resource_in: u64,
     pub resource_out: u64,
@@ -140,7 +139,6 @@ pub trait StorageTrait {
     fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64;
 }
 
-#[derive(Hash, Eq, PartialEq)]
 pub struct CommodityComponent {
     pub commodity_in: u64,
     pub commodity_out: u64,
@@ -151,6 +149,14 @@ pub trait CommodityTrait {
     fn commodity_out(&self) -> u64;
 }
 
+pub struct ResourceRequireComponent {
+    pub requires: HashMap<ResourceGroup, u64>,
+}
+
+pub trait ResourceRequire {
+    fn requires(&self) -> Option<&HashMap<ResourceGroup, u64>>;
+}
+
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum ComponentName {
     EnergyComponent,
@@ -158,6 +164,7 @@ pub enum ComponentName {
     StorageComponent,
     BatteryComponent,
     CommodityComponent,
+    ResourceRequireComponent,
 }
 
 impl Display for ComponentName {
@@ -172,6 +179,7 @@ pub enum ComponentGroup {
     Storage { component: StorageComponent },
     Battery { component: BatteryComponent },
     Commodity { component: CommodityComponent },
+    ResourceRequire { component: ResourceRequireComponent },
 }
 
 impl Display for ComponentGroup {
@@ -182,6 +190,7 @@ impl Display for ComponentGroup {
             ComponentGroup::Storage { .. } => ComponentName::StorageComponent,
             ComponentGroup::Battery { .. } => ComponentName::BatteryComponent,
             ComponentGroup::Commodity { .. } => ComponentName::CommodityComponent,
+            ComponentGroup::ResourceRequire { .. } => ComponentName::ResourceRequireComponent,
         };
 
         write!(f, "{}", name)
@@ -241,10 +250,7 @@ impl StructureBlueprint {
         if component.is_some() {
             return component.unwrap();
         } else {
-            panic!(
-                "{} is missing in this structure",
-                ComponentName::EnergyComponent
-            )
+            panic!("{} is missing in this structure", name)
         }
     }
 }
@@ -353,6 +359,17 @@ impl CommodityTrait for StructureBlueprint {
                 component: CommodityComponent { commodity_out, .. },
             } => *commodity_out,
             _ => 0,
+        }
+    }
+}
+
+impl ResourceRequire for StructureBlueprint {
+    fn requires(&self) -> Option<&HashMap<ResourceGroup, u64>> {
+        match self.get_component(&ComponentName::ResourceRequireComponent) {
+            ComponentGroup::ResourceRequire {
+                component: ResourceRequireComponent { requires },
+            } => Option::from(requires),
+            _ => Option::None,
         }
     }
 }
@@ -516,6 +533,30 @@ impl Storage {
     }
 }
 
+impl ResourceRequireComponent {
+    fn for_commodity(commodity: &CommodityGroup) -> HashMap<ResourceGroup, u64> {
+        let mut requires = HashMap::new();
+
+        match commodity {
+            CommodityGroup::MetalPlate => {
+                requires.insert(ResourceGroup::Metal, 15);
+            }
+            CommodityGroup::MetalPipe => {
+                requires.insert(ResourceGroup::Metal, 5);
+            }
+            CommodityGroup::Gravel => {
+                requires.insert(ResourceGroup::Mineral, 20);
+            }
+            CommodityGroup::Fuel => {
+                requires.insert(ResourceGroup::Mineral, 5);
+                requires.insert(ResourceGroup::Carbon, 35);
+            }
+        }
+
+        return requires;
+    }
+}
+
 // Factory
 pub struct Factory {
     blueprint: StructureBlueprint,
@@ -537,22 +578,27 @@ impl Factory {
             },
         };
 
-        let resource_component = ComponentGroup::Resource {
-            component: ResourceComponent {
-                resource_out: 0,
-                resource_in: 100,
-            },
+        let requires = ResourceRequireComponent::for_commodity(&commodity);
+
+        let resource_require_component = ComponentGroup::ResourceRequire {
+            component: ResourceRequireComponent { requires },
         };
 
-        let storage_component = ComponentGroup::Storage {
-            component: StorageComponent::new(),
+        let commodity_component = ComponentGroup::Commodity {
+            component: CommodityComponent {
+                commodity_in: 0,
+                commodity_out: 25,
+            },
         };
 
         let mut components = HashMap::new();
 
         components.insert(ComponentName::EnergyComponent, energy_component);
-        components.insert(ComponentName::ResourceComponent, resource_component);
-        components.insert(ComponentName::StorageComponent, storage_component);
+        components.insert(ComponentName::CommodityComponent, commodity_component);
+        components.insert(
+            ComponentName::ResourceRequireComponent,
+            resource_require_component,
+        );
 
         let blueprint = StructureBlueprint { components };
 

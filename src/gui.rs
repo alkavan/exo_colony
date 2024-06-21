@@ -8,7 +8,9 @@ use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 use crate::game::{
     Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup, ResourceManager,
 };
-use crate::structures::{StorageTrait, Structure, StructureBlueprint, StructureGroup};
+use crate::structures::{
+    CommodityGroup, StorageTrait, Structure, StructureBlueprint, StructureGroup,
+};
 
 #[derive(Clone, Copy)]
 pub enum BlockType {
@@ -195,6 +197,85 @@ impl MenuSelector<ResourceGroup> for MineResourceSelect {
     }
 }
 
+pub struct FactoryCommoditySelect {
+    selected: usize,
+    items: Vec<CommodityGroup>,
+    selected_style: Style,
+    default_style: Style,
+}
+
+impl FactoryCommoditySelect {
+    pub fn new(items: Vec<CommodityGroup>) -> FactoryCommoditySelect {
+        let selected = 0;
+
+        let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
+        let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
+
+        return FactoryCommoditySelect {
+            selected,
+            items,
+            selected_style,
+            default_style,
+        };
+    }
+}
+
+impl MenuSelector<CommodityGroup> for FactoryCommoditySelect {
+    fn selected(&self) -> CommodityGroup {
+        return self.items[self.selected].clone();
+    }
+
+    fn items(&self) -> Vec<ListItem> {
+        let list = self
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, structure_group)| {
+                let content = self.style(structure_group.to_string(), index);
+                ListItem::new(content)
+            })
+            .collect();
+
+        return list;
+    }
+
+    fn next(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == self.items.len() - 1 {
+            self.selected = 0;
+            return;
+        }
+
+        self.selected += 1;
+    }
+
+    fn previous(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == 0 {
+            self.selected = self.items.len() - 1;
+            return;
+        }
+
+        self.selected -= 1;
+    }
+
+    fn style(&self, name: String, index: usize) -> Span {
+        let style = if index == self.selected {
+            self.selected_style
+        } else {
+            self.default_style
+        };
+
+        return Span::styled(name, style);
+    }
+}
+
 pub fn build_main_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
@@ -326,6 +407,16 @@ pub fn draw_structure_menu_widget(menu: &Menu) -> List {
 
 pub fn draw_resource_select_widget(menu: &MineResourceSelect) -> List {
     let block = build_container_block("Resource Select".to_string());
+
+    let list = List::new(menu.items())
+        .block(block)
+        .style(Style::default().fg(Color::White));
+
+    return list;
+}
+
+pub fn draw_commodity_select_widget(menu: &FactoryCommoditySelect) -> List {
+    let block = build_container_block("Commodity Select".to_string());
 
     let list = List::new(menu.items())
         .block(block)
