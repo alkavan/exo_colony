@@ -41,7 +41,6 @@ impl Display for Position {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Resource {
-    Energy,
     Metal,
     Mineral,
     Gas,

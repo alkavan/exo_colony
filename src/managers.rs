@@ -4,8 +4,8 @@ use std::ops::{AddAssign, SubAssign};
 
 use crate::game::{MapObject, Position, Resource};
 use crate::structures::{
-    BatteryTrait, CommodityGroup, CommodityOutputTrait, EnergyTrait, ResourceOutputTrait,
-    ResourceRequire, ResourceStorageTrait, Structure,
+    BatteryTrait, CommodityGroup, ComponentGroup, ComponentName, EnergyTrait, ResourceOutputTrait,
+    ResourceStorageTrait, Structure,
 };
 
 pub struct EnergyManager {
@@ -317,9 +317,9 @@ impl ResourceManager {
         return amount;
     }
 
-    fn add_commodity_deficit(&mut self, resource_type: &CommodityGroup, amount: u64) {
+    fn add_commodity_deficit(&mut self, commodity_type: &CommodityGroup, amount: u64) {
         self.commodities_deficit
-            .get_mut(&resource_type)
+            .get_mut(&commodity_type)
             .unwrap()
             .add_assign(amount)
     }
@@ -380,33 +380,32 @@ impl ResourceManager {
                     }
                 }
                 Structure::Factory { structure } => {
-                    let requires = structure.blueprint().requires();
+                    let component = structure
+                        .blueprint()
+                        .get_component(&ComponentName::CommodityOutputComponent);
 
-                    if requires.is_some() {
+                    if let ComponentGroup::CommodityOutput { component } = component {
+                        let has_energy = energy_manager.has_energy(component.energy_required);
                         let has_resources =
-                            requires
-                                .unwrap()
-                                .iter()
+                            component
+                                .resources()
                                 .all(|(required_resource, required_amount)| {
-                                    if *required_resource == Resource::Energy {
-                                        return energy_manager.has_energy(required_amount.clone());
-                                    }
-
                                     self.has_resource(required_resource, required_amount.clone())
                                 });
 
-                        if has_resources {
-                            for (required_resource, required_amount) in requires.unwrap().iter() {
-                                if *required_resource == Resource::Energy {
-                                    energy_manager.withdraw(required_amount.clone());
-                                    continue;
-                                }
+                        if has_energy && has_resources {
+                            energy_manager.withdraw(component.energy_required);
 
+                            for (required_resource, required_amount) in component.resources() {
                                 self.withdraw_resource(required_resource, required_amount.clone());
                             }
-
-                            let commodity_out = structure.blueprint().commodity_out();
-                            self.deposit_commodity(structure.commodity(), commodity_out);
+                            self.deposit_commodity(structure.commodity(), component.commodity_out);
+                        } else {
+                            // if we don't have required resource to produce commodity we add to deficit
+                            self.add_commodity_deficit(
+                                structure.commodity(),
+                                component.commodity_out,
+                            )
                         }
                     }
                 }
