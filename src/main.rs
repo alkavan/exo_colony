@@ -3,6 +3,7 @@ extern crate itertools;
 #[macro_use]
 extern crate worldgen;
 
+mod component;
 mod game;
 mod gui;
 mod managers;

@@ -2,10 +2,10 @@ use std::collections::hash_map::{Iter, IterMut};
 use std::collections::HashMap;
 use std::ops::{AddAssign, SubAssign};
 
+use crate::component::{ComponentGroup, ComponentName};
 use crate::game::{MapObject, Position, Resource};
 use crate::structures::{
-    BatteryTrait, CommodityGroup, ComponentGroup, ComponentName, EnergyTrait, ResourceOutputTrait,
-    ResourceStorageTrait, Structure,
+    BatteryTrait, CommodityGroup, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
 };
 
 pub struct EnergyManager {
