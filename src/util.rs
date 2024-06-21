@@ -27,8 +27,8 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             update_rate: Duration::from_millis(240),
-            draw_rate: Duration::from_millis(60),
-            input_rate: Duration::from_millis(20),
+            draw_rate: Duration::from_millis(30),
+            input_rate: Duration::from_millis(10),
         }
     }
 }

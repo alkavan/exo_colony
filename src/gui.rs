@@ -7,9 +7,6 @@ use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
 use crate::game::{Flora, GameMap, MapTile, Position, ResourceStorage};
 
-use encode_unicode::Utf8Char;
-use std::convert::TryFrom;
-
 #[derive(Clone, Copy)]
 pub enum BlockType {
     Full,
@@ -29,17 +26,93 @@ impl From<BlockType> for char {
     }
 }
 
-pub(crate) fn build_main_layout(area: Rect) -> Vec<Rect> {
+pub struct Menu {
+    items: Vec<String>,
+    selected: usize,
+    selected_style: Style,
+    default_style: Style,
+}
+
+impl Menu {
+    pub fn new(items: Vec<String>) -> Menu {
+        let selected_style = Style::default().bg(Color::Red).fg(Color::White);
+        let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
+        let selected = 0;
+
+        Menu {
+            items,
+            selected,
+            selected_style,
+            default_style,
+        }
+    }
+
+    fn get_item_span(&self, name: String, index: usize) -> Span {
+        let style = if index == self.selected {
+            self.selected_style
+        } else {
+            self.default_style
+        };
+
+        return Span::styled(name, style);
+    }
+
+    pub fn items(&self) -> Vec<ListItem> {
+        let list = self
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, name)| ListItem::new(self.get_item_span(name.clone(), index)))
+            .collect();
+
+        return list;
+    }
+
+    pub fn next(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == self.items.len() - 1 {
+            self.selected = 0;
+            return;
+        }
+
+        self.selected += 1;
+    }
+
+    pub fn previous(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == 0 {
+            self.selected = self.items.len() - 1;
+            return;
+        }
+
+        self.selected -= 1;
+    }
+}
+
+pub fn build_main_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .margin(1)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+        .constraints(
+            [
+                Constraint::Percentage(30),
+                Constraint::Percentage(50),
+                Constraint::Percentage(20),
+            ]
+            .as_ref(),
+        )
         .split(area);
 
     return layout;
 }
 
-pub(crate) fn build_left_layout(area: Rect) -> Vec<Rect> {
+pub fn build_left_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
         .split(area);
@@ -47,22 +120,33 @@ pub(crate) fn build_left_layout(area: Rect) -> Vec<Rect> {
     return layout;
 }
 
-pub(crate) fn build_container_block(title: String) -> Block<'static> {
+pub fn build_right_layout(area: Rect) -> Vec<Rect> {
+    let layout = Layout::default()
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(area);
+
+    return layout;
+}
+
+pub fn build_container_block(title: String) -> Block<'static> {
+    let style = Style::default().fg(Color::White);
+
     let block = Block::default()
         .title(format!(" [ {} ] ", title))
-        .borders(Borders::ALL);
+        .borders(Borders::ALL)
+        .style(style);
 
     return block;
 }
 
-pub(crate) fn draw_stats_widget(
+pub fn draw_stats_widget(
     storage: &ResourceStorage,
     position: Position,
     tile: MapTile,
     elapsed: Duration,
     update_delta: u128,
     draw_delta: u128,
-) -> List {
+) -> List<'static> {
     let time = format!(
         "Time: {:.1} (update: {}) (draw: {})",
         elapsed.as_secs_f32(),
@@ -92,10 +176,10 @@ pub(crate) fn draw_stats_widget(
     return list;
 }
 
-pub(crate) fn draw_console_widget(buffer: &String) -> Paragraph {
+pub fn draw_console_widget(buffer: &String) -> Paragraph {
     let block = build_container_block("Console".to_string());
 
-    let style = Style::default().fg(Color::Yellow);
+    let style = Style::default();
 
     let mut log = String::new();
     for l in buffer.lines().rev() {
@@ -110,17 +194,38 @@ pub(crate) fn draw_console_widget(buffer: &String) -> Paragraph {
     return paragraph;
 }
 
-pub(crate) fn draw_board_block() -> Block<'static> {
-    let block = Block::default()
-        .title(" [ Map ] ")
-        .borders(Borders::ALL)
-        .border_type(BorderType::Thick)
-        .style(Style::default().fg(Color::White));
+pub fn draw_map_block() -> Block<'static> {
+    let block = build_container_block("Map".to_string()).border_type(BorderType::Thick);
 
     return block;
 }
 
-pub(crate) fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static>> {
+pub fn draw_build_menu_widget(menu: &Menu) -> List {
+    let block = build_container_block("Build Menu".to_string());
+
+    let list = List::new(menu.items())
+        .block(block)
+        .style(Style::default().fg(Color::White));
+
+    return list;
+}
+
+pub fn draw_info_widget(position: Position, tile: MapTile) -> List<'static> {
+    let block = build_container_block("Info".to_string());
+
+    let tile_content = format!("Tile({}, {}):", position.x, position.y);
+    let flora_content = format!("Flora: {}", tile.flora);
+
+    let mut items = vec![ListItem::new(tile_content), ListItem::new(flora_content)];
+
+    let list = List::new(items)
+        .block(block)
+        .style(Style::default().fg(Color::White));
+
+    return list;
+}
+
+pub fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static>> {
     let y = position.y as usize;
     let x = position.x as usize;
 
@@ -200,7 +305,7 @@ pub(crate) fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static
     return text;
 }
 
-pub(crate) fn draw_map_widget(text: &Vec<Spans<'static>>) -> Paragraph<'static> {
+pub fn draw_map_widget(text: &Vec<Spans<'static>>) -> Paragraph<'static> {
     let p = Paragraph::new(text.clone())
         .block(Block::default().borders(Borders::NONE))
         .style(Style::default().fg(Color::White).bg(Color::Black))

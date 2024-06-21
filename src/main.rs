@@ -19,11 +19,12 @@ use tui::Terminal;
 use crossterm::event::{poll, read, Event, KeyCode};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
+use worldgen::world::Size;
+
+use crate::game::{MapController, ResourceGroup, ResourceStorage};
+use crate::gui::Menu;
 use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
-
-use crate::game::{GameMap, MapController, ResourceGroup, ResourceStorage};
-use worldgen::world::Size;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout();
@@ -53,6 +54,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         ResourceGroup::Carbon,
     ]);
 
+    let mut menu = Menu::new(vec![
+        "Base".to_string(),
+        "Power Plant".to_string(),
+        "Mine".to_string(),
+        "Storage".to_string(),
+        "Factory".to_string(),
+    ]);
+
     // The game controller, work with the Map object.
     let mut controller = MapController::new(Size::of(90, 40));
 
@@ -71,6 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         terminal.draw(|frame| {
             let main_layout = gui::build_main_layout(frame.size());
             let left_layout = gui::build_left_layout(main_layout[0]);
+            let right_layout = gui::build_right_layout(main_layout[2]);
 
             let stats_widget = gui::draw_stats_widget(
                 &resource_storage,
@@ -86,7 +96,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             let console_widget = gui::draw_console_widget(&log_buffer);
             frame.render_widget(console_widget, left_layout[1]);
 
-            let map_block = gui::draw_board_block();
+            let build_menu = gui::draw_build_menu_widget(&menu);
+            frame.render_widget(build_menu, right_layout[0]);
+
+            let info_panel = gui::draw_info_widget(controller.position(), controller.tile());
+            frame.render_widget(info_panel, right_layout[1]);
+
+            let map_block = gui::draw_map_block();
             frame.render_widget(map_block, main_layout[1]);
 
             let map_viewport = main_layout[1].inner(&margin_1);
@@ -95,8 +111,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             if map_widget.is_some() {
                 frame.render_widget(map_widget.clone().unwrap(), map_viewport);
             }
-
-            draw_tick.update(&elapsed);
         })?;
 
         match game_event {
@@ -105,6 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             GameEvent::Draw => {
                 let map_text = gui::render_map(controller.map(), controller.position());
                 map_widget = Option::from(gui::draw_map_widget(&map_text));
+                draw_tick.update(&elapsed);
             }
             GameEvent::Update => {
                 update_tick.update(&elapsed);
@@ -134,8 +149,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 }
                                 KeyCode::Home => {}
                                 KeyCode::End => {}
-                                KeyCode::PageUp => {}
-                                KeyCode::PageDown => {}
+                                KeyCode::PageUp => {
+                                    menu.previous();
+                                }
+                                KeyCode::PageDown => {
+                                    menu.next();
+                                }
                                 KeyCode::Tab => {}
                                 KeyCode::BackTab => {}
                                 KeyCode::Delete => {}
