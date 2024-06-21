@@ -2,16 +2,16 @@
 name = "exo-colony"
 version = "0.1.0"
 authors = ["Igal Alkon <igal.alkon@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "A real-time simulation game about building a colony on an exo-planet for terminal lovers."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crossterm = "0.19"
-tui = { version = "0.14", default-features = false, features = ['crossterm'] }
-rand = "0.8.3"
+crossterm = "0.24"
+tui = { version = "0.18", default-features = false, features = ['crossterm'] }
+rand = "0.8"
 chrono = "0.4"
 itertools = "0.10"
-worldgen = "0.5.3"
-encode_unicode = "0.3.6"
+worldgen = "0.5"
+encode_unicode = "0.3"
