@@ -54,6 +54,7 @@ pub struct BatteryComponent {
 
 pub trait BatteryTrait {
     fn capacity(&self) -> u64;
+    fn capacity_free(&self) -> u64;
     fn stored(&self) -> u64;
     fn charge(&mut self, amount: u64);
 }
@@ -353,6 +354,15 @@ impl BatteryTrait for StructureBlueprint {
             ComponentGroup::Battery {
                 component: BatteryComponent { capacity, .. },
             } => *capacity,
+            _ => 0,
+        }
+    }
+
+    fn capacity_free(&self) -> u64 {
+        match self.get_component(&ComponentName::BatteryComponent) {
+            ComponentGroup::Battery {
+                component: BatteryComponent { capacity, stored },
+            } => *capacity - *stored,
             _ => 0,
         }
     }

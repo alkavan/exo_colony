@@ -100,22 +100,26 @@ impl ResourceManager {
         return self.resources.iter_mut();
     }
 
-    pub fn deposit_resource(&mut self, resource_type: &ResourceGroup, value: u64) -> bool {
-        if value == 0 {
-            return false;
-        }
-        let amount = self.resources.get_mut(&resource_type).unwrap();
-        *amount += value;
-        return true;
+    pub fn has_resource(&self, resource_type: &ResourceGroup, amount: u64) -> bool {
+        let available = self.resources.get(resource_type).unwrap();
+        return *available > amount;
     }
 
-    pub fn withdraw_resource(&mut self, resource_type: &ResourceGroup, value: u64) -> bool {
-        let amount = self.resources.get_mut(&resource_type).unwrap();
-        if *amount < value {
-            return false;
+    pub fn deposit_resource(&mut self, resource_type: &ResourceGroup, amount: u64) -> u64 {
+        let stored = self.resources.get_mut(&resource_type).unwrap();
+        *stored += amount;
+        return *stored;
+    }
+
+    pub fn withdraw_resource(&mut self, resource_type: &ResourceGroup, amount: u64) -> u64 {
+        let stored = self.resources.get_mut(&resource_type).unwrap();
+        if amount > *stored {
+            let available = *stored;
+            *stored = 0;
+            return available;
         }
-        *amount -= value;
-        return true;
+        *stored -= amount;
+        return amount;
     }
 
     pub fn list_commodities(&self) -> Iter<'_, CommodityGroup, u64> {

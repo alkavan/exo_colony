@@ -25,8 +25,8 @@ use worldgen::world::Size;
 use crate::game::{MapController, ResourceGroup, ResourceManager};
 use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
 use crate::structures::{
-    Base, CommodityGroup, CommodityOutputTrait, EnergyTrait, Factory, ResourceOutputTrait,
-    ResourceRequire, ResourceStorageTrait, Storage,
+    Base, BatteryTrait, CommodityGroup, CommodityOutputTrait, EnergyTrait, Factory,
+    ResourceOutputTrait, ResourceRequire, ResourceStorageTrait, Storage,
 };
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
@@ -193,6 +193,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 &ResourceGroup::Energy,
                                 structure.blueprint().energy_out(),
                             );
+
+                            let battery_capacity_free =
+                                BatteryTrait::capacity_free(structure.blueprint());
+                            if battery_capacity_free > 0 {
+                                let withdraw = resource_manager.withdraw_resource(
+                                    &ResourceGroup::Energy,
+                                    battery_capacity_free,
+                                );
+                            }
                         }
                         Structure::Storage { ref mut structure } => {
                             for (resource, amount) in resource_manager.list_resources_mut() {
@@ -206,13 +215,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                             }
                         }
                         Structure::Factory { structure } => {
-                            // let resource_in = structure.blueprint().resource_in();
                             let requires = structure.blueprint().requires();
 
                             if requires.is_some() {
                                 let has_resources = requires.unwrap().iter().all(
                                     |(required_resource, required_amount)| {
-                                        resource_manager.withdraw_resource(
+                                        resource_manager.has_resource(
                                             required_resource,
                                             required_amount.clone(),
                                         )
@@ -220,6 +228,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 );
 
                                 if has_resources {
+                                    for (required_resource, required_amount) in
+                                        requires.unwrap().iter()
+                                    {
+                                        resource_manager.withdraw_resource(
+                                            required_resource,
+                                            required_amount.clone(),
+                                        );
+                                    }
+
                                     let commodity_out = structure.blueprint().commodity_out();
                                     resource_manager
                                         .deposit_commodity(structure.commodity(), commodity_out);
