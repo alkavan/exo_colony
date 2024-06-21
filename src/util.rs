@@ -102,9 +102,10 @@ pub fn get_log(message: String) -> String {
 
 pub fn format_welcome_message() -> String {
     let mut message = String::from("Welcome!");
-    message.push_str(" Use the arrow keys to move on board.");
-    message.push_str(" Use the ENTER key to play your move.");
-    message.push_str(" To exit press to 'q' key.");
+    message.push_str(" Use the arrow (or AWSD) keys to move on map.");
+    message.push_str(" Use the ENTER to place structure or action.");
+    message.push_str(" Use PageUp/PageDown and Home/End to navigate menus.");
+    message.push_str(" Use ESC to exit the game.");
     return get_log(message);
 }
 
