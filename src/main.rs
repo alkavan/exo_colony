@@ -218,12 +218,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 KeyCode::Enter => {
                                     let structure_group = menu.selected();
                                     let tile = controller.tile();
+                                    let object = controller.object();
 
                                     if StructureFactory::allowed(&structure_group, tile) {
                                         let structure = StructureFactory::new(
                                             &structure_group,
+                                            object,
                                             &resource_manager,
-                                            &resource_select,
                                             &commodity_select,
                                         );
 

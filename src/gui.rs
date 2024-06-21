@@ -449,12 +449,8 @@ pub fn draw_commodity_select_widget(menu: &FactoryCommoditySelect) -> List {
     return list;
 }
 
-pub fn format_resource(resource_group: &Resource) -> String {
-    return format!(
-        "{:<10}: {}",
-        "Resource:".to_string(),
-        resource_group.to_string()
-    );
+pub fn format_mine_resource(resource_group: &Resource) -> String {
+    return format!("Resource: {}", resource_group.to_string());
 }
 
 pub fn format_resource_capacity(
@@ -507,7 +503,7 @@ pub fn draw_info_widget(
     if tile.is_resource {
         let deposit = object.unwrap().deposit.unwrap();
         items.push(ListItem::new(format!(
-            "Resource: {} ({}/{})",
+            "Deposit: {} ({}/{})",
             deposit.resource, deposit.available, deposit.amount
         )));
     }
@@ -517,7 +513,7 @@ pub fn draw_info_widget(
 
         if structure.is_some() {
             let structure = structure.unwrap();
-            let structure_content = format!("Structure: {}", structure.to_string());
+            let structure_content = format!("[ {} ]", structure.to_string());
             items.push(ListItem::new(structure_content));
 
             match structure {
@@ -534,7 +530,7 @@ pub fn draw_info_widget(
                 }
                 Structure::PowerPlant { .. } => {}
                 Structure::Mine { ref structure } => {
-                    items.push(ListItem::new(format_resource(structure.resource())));
+                    items.push(ListItem::new(format_mine_resource(structure.resource())));
                 }
                 Structure::Storage { ref structure } => {
                     for resource in structure.blueprint().resources() {

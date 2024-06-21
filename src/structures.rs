@@ -7,7 +7,7 @@ use crate::component::{
     BatteryComponent, CommodityOutputComponent, CommodityStorageComponent, ComponentGroup,
     ComponentName, EnergyComponent, ResourceOutputComponent, ResourceStorageComponent,
 };
-use crate::game::{Flora, MapTile, Resource};
+use crate::game::{Flora, MapObject, MapTile, Resource};
 use crate::gui::MenuSelector;
 use crate::managers::ResourceManager;
 
@@ -645,8 +645,8 @@ pub struct StructureFactory {}
 impl StructureFactory {
     pub fn new(
         group: &StructureGroup,
+        object: Option<&MapObject>,
         resource_manager: &ResourceManager,
-        resource_select: &dyn MenuSelector<Resource>,
         commodity_select: &dyn MenuSelector<Commodity>,
     ) -> Option<Structure> {
         match group {
@@ -663,8 +663,14 @@ impl StructureFactory {
                 Option::from(structure)
             }
             StructureGroup::Mine => {
+                if object.is_none() {
+                    panic!("cannot build mine, map object missing!")
+                }
+
+                let map_resource = object.unwrap().deposit.unwrap().resource.clone();
+
                 let structure = Structure::Mine {
-                    structure: Mine::new(resource_select.selected()),
+                    structure: Mine::new(map_resource),
                 };
                 Option::from(structure)
             }
@@ -692,17 +698,14 @@ impl StructureFactory {
                 !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Grass)
             }
             StructureGroup::Energy => {
-                !tile.is_resource
-                    && (tile.flora == Flora::Sand
-                        || tile.flora == Flora::Grass
-                        || tile.flora == Flora::Water)
+                !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Water)
             }
             StructureGroup::Mine => tile.is_resource,
             StructureGroup::Storage => {
                 !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Grass)
             }
             StructureGroup::Factory => {
-                !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Grass)
+                !tile.is_resource && (tile.flora == Flora::Grass || tile.flora == Flora::Dirt)
             }
         }
     }
