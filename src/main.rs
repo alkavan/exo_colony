@@ -23,9 +23,7 @@ use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
 
 use crate::game::{GameMap, MapController, ResourceGroup, ResourceStorage};
-
-const MAP_SIZE_W: u16 = 80;
-const MAP_SIZE_H: u16 = 40;
+use worldgen::world::Size;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout();
@@ -55,11 +53,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         ResourceGroup::Carbon,
     ]);
 
-    // The game board
-    let map = GameMap::new(MAP_SIZE_W, MAP_SIZE_H);
-
-    // The game controller, work with the GameBoard object.
-    let mut controller = MapController::new(map);
+    // The game controller, work with the Map object.
+    let mut controller = MapController::new(Size::of(90, 40));
 
     // Default margin used when drawing interfaces.
     let margin_1 = Margin {

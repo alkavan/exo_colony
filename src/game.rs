@@ -90,6 +90,38 @@ impl ResourceStorage {
 pub struct MapTile {
     pub flora: Flora,
     pub resource: Option<Resource>,
+    pub structure: Option<Structure>,
+}
+
+impl MapTile {
+    pub fn new(flora: Flora, resource: Option<Resource>, structure: Option<Structure>) -> MapTile {
+        return MapTile {
+            flora,
+            resource,
+            structure,
+        };
+    }
+}
+
+#[derive(Clone)]
+pub enum StructureGroup {
+    Base,
+    PowerPlant,
+    Mine,
+    Storage,
+    Factory,
+}
+
+#[derive(Clone)]
+pub struct Structure {
+    group: StructureGroup,
+}
+
+pub struct PowerPlant {
+    structure: Structure,
+    energy_in: u32,
+    energy_out: u32,
+    energy_acc: u32,
 }
 
 type WorldCache = Vec<Vec<MapTile>>;
@@ -106,40 +138,25 @@ impl GameMap {
         let noise = PerlinNoise::new();
 
         let nm1 = NoiseMap::new(noise)
-            .set_seed(Seed::of("Hello?"))
+            .set_seed(Seed::of("FooMoo!"))
             .set_step(Step::of(0.005, 0.005));
 
         let nm2 = NoiseMap::new(noise)
-            .set_seed(Seed::of("Hello!"))
+            .set_seed(Seed::of("!GooToo"))
             .set_step(Step::of(0.05, 0.05));
 
         let nm = Box::new(nm1 + nm2 * 3);
 
-        let water_tile = MapTile {
-            flora: Flora::Water,
-            resource: Option::None,
-        };
-        let sand_tile = MapTile {
-            flora: Flora::Sand,
-            resource: Option::None,
-        };
-        let grass_tile = MapTile {
-            flora: Flora::Grass,
-            resource: Option::None,
-        };
-        let dirt_tile = MapTile {
-            flora: Flora::Dirt,
-            resource: Option::None,
-        };
-        let rock_tile = MapTile {
-            flora: Flora::Rock,
-            resource: Option::None,
-        };
+        let water_tile = MapTile::new(Flora::Water, Option::None, Option::None);
+        let sand_tile = MapTile::new(Flora::Sand, Option::None, Option::None);
+        let grass_tile = MapTile::new(Flora::Grass, Option::None, Option::None);
+        let dirt_tile = MapTile::new(Flora::Dirt, Option::None, Option::None);
+        let rock_tile = MapTile::new(Flora::Rock, Option::None, Option::None);
 
         let world = World::new()
             .set(Size::of(width as i64, height as i64))
             // Water
-            .add(Tile::new(water_tile).when(constraint!(nm.clone(), < -0.1)))
+            .add(Tile::new(water_tile).when(constraint!(nm.clone(), < -0.25)))
             // Sand
             .add(Tile::new(sand_tile).when(constraint!(nm.clone(), < 0.0)))
             // Grass
@@ -182,8 +199,12 @@ pub struct MapController {
 }
 
 impl MapController {
-    pub fn new(map: GameMap) -> MapController {
+    pub fn new(size: Size) -> MapController {
         let position = Position::new(0, 0);
+        let (w, h) = (size.w as u16, size.h as u16);
+
+        let map = GameMap::new(w, h);
+
         return MapController { map, position };
     }
 

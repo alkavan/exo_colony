@@ -7,11 +7,33 @@ use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
 use crate::game::{Flora, GameMap, MapTile, Position, ResourceStorage};
 
+use encode_unicode::Utf8Char;
+use std::convert::TryFrom;
+
+#[derive(Clone, Copy)]
+pub enum BlockType {
+    Full,
+    Dark,
+    Medium,
+    Light,
+}
+
+impl From<BlockType> for char {
+    fn from(block: BlockType) -> Self {
+        match block {
+            BlockType::Full => '█',
+            BlockType::Dark => '▓',
+            BlockType::Medium => '▓',
+            BlockType::Light => '░',
+        }
+    }
+}
+
 pub(crate) fn build_main_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .margin(1)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
         .split(area);
 
     return layout;
@@ -102,10 +124,10 @@ pub(crate) fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static
     let y = position.y as usize;
     let x = position.x as usize;
 
-    let water_style = Style::default().bg(Color::Blue);
+    let water_style = Style::default().bg(Color::Rgb(32, 178, 170));
     let sand_style = Style::default().bg(Color::Yellow);
-    let dirt_style = Style::default().bg(Color::Red);
-    let grass_style = Style::default().bg(Color::Green);
+    let dirt_style = Style::default().bg(Color::Rgb(139, 69, 19));
+    let grass_style = Style::default().bg(Color::Rgb(0, 128, 0));
     let rock_style = Style::default().bg(Color::Black);
 
     let selected_style = Style::default().bg(Color::White);
@@ -161,15 +183,14 @@ pub(crate) fn render_map(map: &GameMap, position: Position) -> Vec<Spans<'static
                     };
 
                     let symbol = match tile.flora {
-                        Flora::Water => char::from('▒'),
-                        Flora::Sand => char::from('▒'),
-                        Flora::Dirt => char::from('▒'),
-                        Flora::Grass => char::from('▒'),
-                        Flora::Rock => char::from('▒'),
-                        // ░ , ▓ , ▒
+                        Flora::Water => BlockType::Light,
+                        Flora::Sand => BlockType::Light,
+                        Flora::Dirt => BlockType::Light,
+                        Flora::Grass => BlockType::Light,
+                        Flora::Rock => BlockType::Light,
                     };
 
-                    return Span::styled(String::from(symbol), style);
+                    return Span::styled(char::from(symbol).to_string(), style);
                 })
                 .collect();
             return Spans::from(spans);
