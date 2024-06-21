@@ -135,18 +135,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                             match event.code {
                                 KeyCode::Backspace => {}
                                 KeyCode::Enter => {}
-                                KeyCode::Left => {
-                                    controller.left();
-                                }
-                                KeyCode::Right => {
-                                    controller.right();
-                                }
-                                KeyCode::Up => {
-                                    controller.up();
-                                }
-                                KeyCode::Down => {
-                                    controller.down();
-                                }
+                                KeyCode::Left => {}
+                                KeyCode::Right => {}
+                                KeyCode::Up => {}
+                                KeyCode::Down => {}
                                 KeyCode::Home => {}
                                 KeyCode::End => {}
                                 KeyCode::PageUp => {
@@ -160,16 +152,28 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 KeyCode::Delete => {}
                                 KeyCode::Insert => {}
                                 KeyCode::F(_) => {}
-                                KeyCode::Char(c) => {
-                                    // If 'q' key is pressed, clear screen and exit.
-                                    if c == 'q' {
-                                        disable_raw_mode()?;
-                                        terminal.clear()?;
-                                        break;
+                                KeyCode::Char(c) => match c {
+                                    'a' => {
+                                        controller.left();
                                     }
-                                }
+                                    'd' => {
+                                        controller.right();
+                                    }
+                                    'w' => {
+                                        controller.up();
+                                    }
+                                    's' => {
+                                        controller.down();
+                                    }
+                                    _ => {}
+                                },
                                 KeyCode::Null => {}
-                                KeyCode::Esc => {}
+                                KeyCode::Esc => {
+                                    // Quit
+                                    disable_raw_mode()?;
+                                    terminal.clear()?;
+                                    break;
+                                }
                             }
                         }
                         Event::Mouse(event) => {
