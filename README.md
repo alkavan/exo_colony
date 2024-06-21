@@ -16,9 +16,9 @@ We will move to *beta* once all game mechanics will be implemented.
 * Commodity management and requirements
 * Structure components
 * Tile info panel
+* Implement structure building placement restrictions
 
 ### TODO
-* Implement structure building restrictions using flora
 * Implement structure construction status (?)
 * Implement money (ExoCoin) and revenue
 * Implement spaceport structure
