@@ -4,6 +4,8 @@ use std::hash::Hash;
 use std::ops::AddAssign;
 
 use crate::game::ResourceGroup;
+use itertools::Itertools;
+use std::iter::FromIterator;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
@@ -63,14 +65,13 @@ pub trait ResourceOutputTrait {
     fn resource_out(&self) -> u64;
 }
 
-pub struct StorageComponent {
+pub struct ResourceStorageComponent {
     pub capacity: HashMap<ResourceGroup, u64>,
     pub resources: HashMap<ResourceGroup, u64>,
-    pub commodities: HashMap<CommodityGroup, u64>,
 }
 
-impl StorageComponent {
-    fn new() -> StorageComponent {
+impl ResourceStorageComponent {
+    fn new() -> ResourceStorageComponent {
         let mut capacity = HashMap::new();
         capacity.insert(ResourceGroup::Energy, 1000);
         capacity.insert(ResourceGroup::Metal, 1000);
@@ -85,16 +86,9 @@ impl StorageComponent {
         resources.insert(ResourceGroup::Carbon, 0);
         resources.insert(ResourceGroup::Gas, 0);
 
-        let mut commodities = HashMap::new();
-        commodities.insert(CommodityGroup::Fuel, 0);
-        commodities.insert(CommodityGroup::Gravel, 0);
-        commodities.insert(CommodityGroup::MetalPlate, 0);
-        commodities.insert(CommodityGroup::MetalPipe, 0);
-
-        return StorageComponent {
+        return ResourceStorageComponent {
             capacity,
             resources,
-            commodities,
         };
     }
 
@@ -118,6 +112,59 @@ impl StorageComponent {
         self.resources.get_mut(group).unwrap().add_assign(amount);
     }
 
+    pub fn resources(&self) -> Vec<&ResourceGroup> {
+        return Vec::from_iter(self.resources.keys());
+    }
+}
+
+pub trait ResourceStorageTrait {
+    fn capacity(&self, group: &ResourceGroup) -> u64;
+    fn resource(&self, group: &ResourceGroup) -> u64;
+    fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64;
+    fn resources(&self) -> Vec<&ResourceGroup>;
+}
+
+pub struct CommodityOutputComponent {
+    pub commodity_out: u64,
+}
+
+pub trait CommodityOutputTrait {
+    fn commodity_out(&self) -> u64;
+}
+
+pub struct CommodityStorageComponent {
+    pub capacity: HashMap<CommodityGroup, u64>,
+    pub commodities: HashMap<CommodityGroup, u64>,
+}
+
+impl CommodityStorageComponent {
+    fn new() -> CommodityStorageComponent {
+        let mut capacity = HashMap::new();
+        capacity.insert(CommodityGroup::Fuel, 1000);
+        capacity.insert(CommodityGroup::Gravel, 1000);
+        capacity.insert(CommodityGroup::MetalPlate, 1000);
+        capacity.insert(CommodityGroup::MetalPipe, 1000);
+
+        let mut commodities = HashMap::new();
+        commodities.insert(CommodityGroup::Fuel, 0);
+        commodities.insert(CommodityGroup::Gravel, 0);
+        commodities.insert(CommodityGroup::MetalPlate, 0);
+        commodities.insert(CommodityGroup::MetalPipe, 0);
+
+        return CommodityStorageComponent {
+            capacity,
+            commodities,
+        };
+    }
+
+    fn capacity(&self, group: &CommodityGroup) -> u64 {
+        return self.capacity[&group];
+    }
+
+    fn capacity_free(&self, group: &CommodityGroup) -> u64 {
+        return self.capacity[&group] - self.commodities[&group];
+    }
+
     fn commodity(&self, group: &CommodityGroup) -> u64 {
         return self.commodities[&group];
     }
@@ -129,22 +176,17 @@ impl StorageComponent {
     fn commodity_add(&mut self, group: &CommodityGroup, amount: u64) {
         self.commodities.get_mut(group).unwrap().add_assign(amount);
     }
+
+    pub fn commodities(&self) -> Vec<&CommodityGroup> {
+        return Vec::from_iter(self.commodities.keys());
+    }
 }
 
-pub trait StorageTrait {
-    fn capacity(&self, group: &ResourceGroup) -> u64;
-    fn resource(&self, group: &ResourceGroup) -> u64;
-    fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64;
-}
-
-pub struct CommodityComponent {
-    pub commodity_in: u64,
-    pub commodity_out: u64,
-}
-
-pub trait CommodityTrait {
-    fn commodity_in(&self) -> u64;
-    fn commodity_out(&self) -> u64;
+pub trait CommodityStorageTrait {
+    fn capacity(&self, group: &CommodityGroup) -> u64;
+    fn commodity(&self, group: &CommodityGroup) -> u64;
+    fn commodity_add(&mut self, group: &CommodityGroup, amount: u64) -> u64;
+    fn commodities(&self) -> Vec<&CommodityGroup>;
 }
 
 pub struct ResourceRequireFactory {
@@ -158,10 +200,11 @@ pub trait ResourceRequire {
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum ComponentName {
     EnergyComponent,
-    ResourceComponent,
-    StorageComponent,
+    ResourceOutputComponent,
+    ResourceStorageComponent,
+    CommodityStorageComponent,
     BatteryComponent,
-    CommodityComponent,
+    CommodityOutputComponent,
     ResourceRequireComponent,
 }
 
@@ -172,23 +215,39 @@ impl Display for ComponentName {
 }
 
 pub enum ComponentGroup {
-    Energy { component: EnergyComponent },
-    ResourceOutput { component: ResourceOutputComponent },
-    ResourceRequire { component: ResourceRequireFactory },
-    Storage { component: StorageComponent },
-    Battery { component: BatteryComponent },
-    Commodity { component: CommodityComponent },
+    Energy {
+        component: EnergyComponent,
+    },
+    ResourceOutput {
+        component: ResourceOutputComponent,
+    },
+    ResourceRequire {
+        component: ResourceRequireFactory,
+    },
+    ResourceStorage {
+        component: ResourceStorageComponent,
+    },
+    CommodityStorage {
+        component: CommodityStorageComponent,
+    },
+    Battery {
+        component: BatteryComponent,
+    },
+    CommodityOutput {
+        component: CommodityOutputComponent,
+    },
 }
 
 impl Display for ComponentGroup {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let name = match self {
             ComponentGroup::Energy { .. } => ComponentName::EnergyComponent,
-            ComponentGroup::ResourceOutput { .. } => ComponentName::ResourceComponent,
-            ComponentGroup::Storage { .. } => ComponentName::StorageComponent,
-            ComponentGroup::Battery { .. } => ComponentName::BatteryComponent,
-            ComponentGroup::Commodity { .. } => ComponentName::CommodityComponent,
+            ComponentGroup::ResourceOutput { .. } => ComponentName::ResourceOutputComponent,
             ComponentGroup::ResourceRequire { .. } => ComponentName::ResourceRequireComponent,
+            ComponentGroup::ResourceStorage { .. } => ComponentName::ResourceStorageComponent,
+            ComponentGroup::CommodityOutput { .. } => ComponentName::CommodityOutputComponent,
+            ComponentGroup::CommodityStorage { .. } => ComponentName::CommodityStorageComponent,
+            ComponentGroup::Battery { .. } => ComponentName::BatteryComponent,
         };
 
         write!(f, "{}", name)
@@ -251,6 +310,10 @@ impl StructureBlueprint {
             panic!("{} is missing in this structure", name)
         }
     }
+
+    pub fn has_component(&self, name: &ComponentName) -> bool {
+        return self.components.get(name).is_some();
+    }
 }
 
 impl EnergyTrait for StructureBlueprint {
@@ -275,7 +338,7 @@ impl EnergyTrait for StructureBlueprint {
 
 impl ResourceOutputTrait for StructureBlueprint {
     fn resource_out(&self) -> u64 {
-        match self.get_component(&ComponentName::ResourceComponent) {
+        match self.get_component(&ComponentName::ResourceOutputComponent) {
             ComponentGroup::ResourceOutput {
                 component: ResourceOutputComponent { resource_out },
             } => *resource_out,
@@ -284,20 +347,20 @@ impl ResourceOutputTrait for StructureBlueprint {
     }
 }
 
-impl StorageTrait for StructureBlueprint {
+impl ResourceStorageTrait for StructureBlueprint {
     fn capacity(&self, group: &ResourceGroup) -> u64 {
-        match self.get_component(&ComponentName::StorageComponent) {
-            ComponentGroup::Storage {
-                component: StorageComponent { capacity, .. },
+        match self.get_component(&ComponentName::ResourceStorageComponent) {
+            ComponentGroup::ResourceStorage {
+                component: ResourceStorageComponent { capacity, .. },
             } => capacity[&group],
             _ => 0,
         }
     }
 
     fn resource(&self, group: &ResourceGroup) -> u64 {
-        match self.get_component(&ComponentName::StorageComponent) {
-            ComponentGroup::Storage {
-                component: StorageComponent { resources, .. },
+        match self.get_component(&ComponentName::ResourceStorageComponent) {
+            ComponentGroup::ResourceStorage {
+                component: ResourceStorageComponent { resources, .. },
             } => resources[&group],
             _ => 0,
         }
@@ -306,11 +369,11 @@ impl StorageTrait for StructureBlueprint {
     fn resource_add(&mut self, group: &ResourceGroup, amount: u64) -> u64 {
         let component = self
             .components
-            .get_mut(&ComponentName::StorageComponent)
+            .get_mut(&ComponentName::ResourceStorageComponent)
             .unwrap();
 
         match component {
-            ComponentGroup::Storage { ref mut component } => {
+            ComponentGroup::ResourceStorage { ref mut component } => {
                 let free_capacity = component.capacity_free(group);
 
                 if free_capacity <= 0 {
@@ -330,22 +393,75 @@ impl StorageTrait for StructureBlueprint {
             _ => 0,
         }
     }
+
+    fn resources(&self) -> Vec<&ResourceGroup> {
+        match self.get_component(&ComponentName::ResourceStorageComponent) {
+            ComponentGroup::ResourceStorage { component } => component.resources(),
+            _ => Vec::new(),
+        }
+    }
 }
 
-impl CommodityTrait for StructureBlueprint {
-    fn commodity_in(&self) -> u64 {
-        match self.get_component(&ComponentName::CommodityComponent) {
-            ComponentGroup::Commodity {
-                component: CommodityComponent { commodity_in, .. },
-            } => *commodity_in,
+impl CommodityStorageTrait for StructureBlueprint {
+    fn capacity(&self, group: &CommodityGroup) -> u64 {
+        match self.get_component(&ComponentName::CommodityStorageComponent) {
+            ComponentGroup::CommodityStorage {
+                component: CommodityStorageComponent { capacity, .. },
+            } => capacity[&group],
             _ => 0,
         }
     }
 
+    fn commodity(&self, group: &CommodityGroup) -> u64 {
+        match self.get_component(&ComponentName::CommodityStorageComponent) {
+            ComponentGroup::CommodityStorage {
+                component: CommodityStorageComponent { commodities, .. },
+            } => commodities[&group],
+            _ => 0,
+        }
+    }
+
+    fn commodity_add(&mut self, group: &CommodityGroup, amount: u64) -> u64 {
+        let component = self
+            .components
+            .get_mut(&ComponentName::CommodityStorageComponent)
+            .unwrap();
+
+        match component {
+            ComponentGroup::CommodityStorage { ref mut component } => {
+                let free_capacity = component.capacity_free(group);
+
+                if free_capacity <= 0 {
+                    return 0;
+                }
+
+                let left_over: i64 = amount as i64 - free_capacity as i64;
+
+                if left_over <= 0 {
+                    component.commodity_add(group, amount);
+                    return amount;
+                }
+
+                component.commodity_add(group, free_capacity);
+                return free_capacity;
+            }
+            _ => 0,
+        }
+    }
+
+    fn commodities(&self) -> Vec<&CommodityGroup> {
+        match self.get_component(&ComponentName::CommodityStorageComponent) {
+            ComponentGroup::CommodityStorage { component } => component.commodities(),
+            _ => Vec::new(),
+        }
+    }
+}
+
+impl CommodityOutputTrait for StructureBlueprint {
     fn commodity_out(&self) -> u64 {
-        match self.get_component(&ComponentName::CommodityComponent) {
-            ComponentGroup::Commodity {
-                component: CommodityComponent { commodity_out, .. },
+        match self.get_component(&ComponentName::CommodityOutputComponent) {
+            ComponentGroup::CommodityOutput {
+                component: CommodityOutputComponent { commodity_out, .. },
             } => *commodity_out,
             _ => 0,
         }
@@ -365,7 +481,7 @@ impl ResourceRequire for StructureBlueprint {
 
 // Base
 pub struct Base {
-    pub blueprint: StructureBlueprint,
+    blueprint: StructureBlueprint,
 }
 
 impl Debug for Base {
@@ -385,15 +501,20 @@ impl Base {
 
         let battery_component = ComponentGroup::Battery {
             component: BatteryComponent {
-                capacity: 1000,
+                capacity: 10000,
                 used: 0,
             },
+        };
+
+        let storage_component = ComponentGroup::ResourceStorage {
+            component: ResourceStorageComponent::new(),
         };
 
         let mut components = HashMap::new();
 
         components.insert(ComponentName::EnergyComponent, energy_component);
         components.insert(ComponentName::BatteryComponent, battery_component);
+        components.insert(ComponentName::ResourceStorageComponent, storage_component);
 
         let blueprint = StructureBlueprint { components };
 
@@ -466,7 +587,7 @@ impl Mine {
         let mut components = HashMap::new();
 
         components.insert(ComponentName::EnergyComponent, energy_component);
-        components.insert(ComponentName::ResourceComponent, resource_component);
+        components.insert(ComponentName::ResourceOutputComponent, resource_component);
 
         let blueprint = StructureBlueprint { components };
 
@@ -486,7 +607,7 @@ impl Mine {
 
 // Storage
 pub struct Storage {
-    pub blueprint: StructureBlueprint,
+    blueprint: StructureBlueprint,
 }
 
 impl Debug for Storage {
@@ -497,13 +618,25 @@ impl Debug for Storage {
 
 impl Storage {
     pub fn new() -> Storage {
-        let storage_component = ComponentGroup::Storage {
-            component: StorageComponent::new(),
+        let resource_storage_component = ComponentGroup::ResourceStorage {
+            component: ResourceStorageComponent::new(),
+        };
+
+        let commodity_storage_component = ComponentGroup::CommodityStorage {
+            component: CommodityStorageComponent::new(),
         };
 
         let mut components = HashMap::new();
 
-        components.insert(ComponentName::StorageComponent, storage_component);
+        components.insert(
+            ComponentName::ResourceStorageComponent,
+            resource_storage_component,
+        );
+
+        components.insert(
+            ComponentName::CommodityStorageComponent,
+            commodity_storage_component,
+        );
 
         let blueprint = StructureBlueprint { components };
 
@@ -570,17 +703,14 @@ impl Factory {
             component: ResourceRequireFactory { requires },
         };
 
-        let commodity_component = ComponentGroup::Commodity {
-            component: CommodityComponent {
-                commodity_in: 0,
-                commodity_out: 25,
-            },
+        let commodity_component = ComponentGroup::CommodityOutput {
+            component: CommodityOutputComponent { commodity_out: 25 },
         };
 
         let mut components = HashMap::new();
 
         components.insert(ComponentName::EnergyComponent, energy_component);
-        components.insert(ComponentName::CommodityComponent, commodity_component);
+        components.insert(ComponentName::CommodityOutputComponent, commodity_component);
         components.insert(
             ComponentName::ResourceRequireComponent,
             resource_require_component,

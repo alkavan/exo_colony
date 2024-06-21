@@ -9,7 +9,7 @@ use crate::game::{
     Flora, GameMap, MapObject, MapTile, ObjectManager, Position, ResourceGroup, ResourceManager,
 };
 use crate::structures::{
-    CommodityGroup, StorageTrait, Structure, StructureBlueprint, StructureGroup,
+    CommodityGroup, ResourceStorageTrait, Structure, StructureBlueprint, StructureGroup,
 };
 
 #[derive(Clone, Copy)]
@@ -469,32 +469,25 @@ pub fn draw_info_widget(
             items.push(ListItem::new(structure_content));
 
             match structure {
-                Structure::Base { .. } => {}
+                Structure::Base { ref structure } => {
+                    for resource in structure.blueprint().resources() {
+                        items.push(ListItem::new(format_resource_capacity(
+                            structure.blueprint(),
+                            resource,
+                        )));
+                    }
+                }
                 Structure::PowerPlant { .. } => {}
                 Structure::Mine { ref structure } => {
                     items.push(ListItem::new(format_resource(structure.resource())));
                 }
                 Structure::Storage { ref structure } => {
-                    items.push(ListItem::new(format_resource_capacity(
-                        structure.blueprint(),
-                        &ResourceGroup::Energy,
-                    )));
-                    items.push(ListItem::new(format_resource_capacity(
-                        structure.blueprint(),
-                        &ResourceGroup::Metal,
-                    )));
-                    items.push(ListItem::new(format_resource_capacity(
-                        structure.blueprint(),
-                        &ResourceGroup::Mineral,
-                    )));
-                    items.push(ListItem::new(format_resource_capacity(
-                        structure.blueprint(),
-                        &ResourceGroup::Gas,
-                    )));
-                    items.push(ListItem::new(format_resource_capacity(
-                        structure.blueprint(),
-                        &ResourceGroup::Carbon,
-                    )));
+                    for resource in structure.blueprint().resources() {
+                        items.push(ListItem::new(format_resource_capacity(
+                            structure.blueprint(),
+                            resource,
+                        )));
+                    }
                 }
                 Structure::Factory { .. } => {}
             }

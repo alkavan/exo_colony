@@ -25,8 +25,8 @@ use worldgen::world::Size;
 use crate::game::{MapController, ResourceGroup, ResourceManager};
 use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
 use crate::structures::{
-    Base, CommodityGroup, CommodityTrait, EnergyTrait, Factory, ResourceOutputTrait,
-    ResourceRequire, Storage, StorageTrait,
+    Base, CommodityGroup, CommodityOutputTrait, EnergyTrait, Factory, ResourceOutputTrait,
+    ResourceRequire, ResourceStorageTrait, Storage,
 };
 use crate::structures::{Mine, PowerPlant, Structure, StructureGroup};
 
