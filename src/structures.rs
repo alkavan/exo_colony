@@ -1,40 +1,26 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
-use std::hash::Hash;
 use std::ops::{AddAssign, Sub, SubAssign};
 
 use crate::component::{
-    BatteryComponent, CommodityOutputComponent, CommodityStorageComponent, ComponentGroup,
-    ComponentName, EnergyComponent, ResourceOutputComponent, ResourceStorageComponent,
+    BatteryComponent, CommodityStorageComponent, ComponentGroup, ComponentName, EnergyComponent,
+    FactoryOutputComponent, MineOutputComponent, RefineryOutputComponent, ResourceStorageComponent,
 };
-use crate::game::{Flora, MapObject, MapTile, Resource};
+use crate::game::{Commodity, Flora, Manufactured, MapObject, MapTile, Resource};
 use crate::gui::MenuSelector;
 use crate::managers::ResourceManager;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StructureGroup {
     Base,
-    Energy,
+    Power,
     Mine,
-    Storage,
+    Refinery,
     Factory,
+    Storage,
 }
 
 impl Display for StructureGroup {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum Commodity {
-    Concrete,
-    Electronics,
-    Fuel,
-    Glass,
-}
-
-impl Display for Commodity {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "{:?}", self)
     }
@@ -76,8 +62,9 @@ pub enum Structure {
     Base { structure: Base },
     PowerPlant { structure: PowerPlant },
     Mine { structure: Mine },
-    Storage { structure: Storage },
+    Refinery { structure: Refinery },
     Factory { structure: Factory },
+    Storage { structure: Storage },
 }
 
 impl Display for Structure {
@@ -86,8 +73,9 @@ impl Display for Structure {
             Structure::PowerPlant { .. } => "Power Plant",
             Structure::Mine { .. } => "Mine",
             Structure::Base { .. } => "Base",
-            Structure::Storage { .. } => "Storage",
+            Structure::Refinery { .. } => "Refinery",
             Structure::Factory { .. } => "Factory",
+            Structure::Storage { .. } => "Storage",
         };
         write!(f, "{}", name)
     }
@@ -101,10 +89,11 @@ impl StructureGroupTrait for Structure {
     fn group(&self) -> StructureGroup {
         match self {
             Structure::Base { .. } => StructureGroup::Base,
-            Structure::PowerPlant { .. } => StructureGroup::Energy,
+            Structure::PowerPlant { .. } => StructureGroup::Power,
             Structure::Mine { .. } => StructureGroup::Mine,
-            Structure::Storage { .. } => StructureGroup::Storage,
             Structure::Factory { .. } => StructureGroup::Factory,
+            Structure::Refinery { .. } => StructureGroup::Refinery,
+            Structure::Storage { .. } => StructureGroup::Storage,
         }
     }
 }
@@ -239,9 +228,9 @@ impl BatteryTrait for StructureBlueprint {
 
 impl ResourceOutputTrait for StructureBlueprint {
     fn resource_out(&self) -> u64 {
-        match self.get_component(&ComponentName::ResourceOutputComponent) {
-            ComponentGroup::ResourceOutput {
-                component: ResourceOutputComponent { resource_out },
+        match self.get_component(&ComponentName::MineOutputComponent) {
+            ComponentGroup::MineOutput {
+                component: MineOutputComponent { resource_out },
             } => *resource_out,
             _ => 0,
         }
@@ -470,14 +459,14 @@ impl Mine {
             },
         };
 
-        let resource_component = ComponentGroup::ResourceOutput {
-            component: ResourceOutputComponent { resource_out: 1 },
+        let resource_component = ComponentGroup::MineOutput {
+            component: MineOutputComponent { resource_out: 1 },
         };
 
         let mut components = HashMap::new();
 
         components.insert(ComponentName::EnergyComponent, energy_component);
-        components.insert(ComponentName::ResourceOutputComponent, resource_component);
+        components.insert(ComponentName::MineOutputComponent, resource_component);
 
         let blueprint = StructureBlueprint { components };
 
@@ -550,12 +539,62 @@ impl Storage {
 pub struct ResourceRequireFactory {}
 
 impl ResourceRequireFactory {
+    fn energy_for_manufactured(resource: &Manufactured) -> u64 {
+        match resource {
+            Manufactured::Silicon => 60,
+            Manufactured::Food => 15,
+            Manufactured::Steel => 45,
+            Manufactured::BioPlastic => 70,
+            Manufactured::Oxygen => 30,
+            Manufactured::Gravel => 40,
+            Manufactured::Hydrogen => 35,
+            Manufactured::FuelPellet => 100,
+        }
+    }
+
+    fn resources_for_manufactured(resource: &Manufactured) -> HashMap<Resource, u64> {
+        let mut requires = HashMap::new();
+
+        match resource {
+            Manufactured::Silicon => {
+                requires.insert(Resource::Silica, 5);
+            }
+            Manufactured::Food => {
+                requires.insert(Resource::Water, 5);
+            }
+            Manufactured::Steel => {
+                requires.insert(Resource::Iron, 3);
+            }
+            Manufactured::BioPlastic => {
+                requires.insert(Resource::Silica, 3);
+                requires.insert(Resource::Carbon, 7);
+            }
+            Manufactured::Oxygen => {
+                requires.insert(Resource::Water, 5);
+            }
+            Manufactured::Gravel => {}
+            Manufactured::Hydrogen => {
+                requires.insert(Resource::Water, 10);
+            }
+            Manufactured::FuelPellet => {
+                requires.insert(Resource::Uranium, 3);
+            }
+        }
+
+        return requires;
+    }
+}
+
+pub struct CommodityRequireFactory {}
+
+impl CommodityRequireFactory {
     fn energy_for_commodity(commodity: &Commodity) -> u64 {
         match commodity {
             Commodity::Concrete => 45,
             Commodity::Fuel => 20,
-            Commodity::Electronics => 40,
+            Commodity::Semiconductor => 40,
             Commodity::Glass => 120,
+            Commodity::FuelRod => 200,
         }
     }
 
@@ -569,13 +608,16 @@ impl ResourceRequireFactory {
             Commodity::Fuel => {
                 requires.insert(Resource::Water, 35);
             }
-            Commodity::Electronics => {
+            Commodity::Semiconductor => {
                 requires.insert(Resource::Aluminum, 5);
                 requires.insert(Resource::Carbon, 10);
                 requires.insert(Resource::Silica, 25);
             }
             Commodity::Glass => {
                 requires.insert(Resource::Silica, 50);
+            }
+            Commodity::FuelRod => {
+                requires.insert(Resource::Uranium, 50);
             }
         }
 
@@ -604,11 +646,11 @@ impl Factory {
             },
         };
 
-        let energy_required = ResourceRequireFactory::energy_for_commodity(&commodity);
-        let resource_required = ResourceRequireFactory::resources_for_commodity(&commodity);
+        let energy_required = CommodityRequireFactory::energy_for_commodity(&commodity);
+        let resource_required = CommodityRequireFactory::resources_for_commodity(&commodity);
 
-        let commodity_component = ComponentGroup::CommodityOutput {
-            component: CommodityOutputComponent {
+        let commodity_component = ComponentGroup::FactoryOutput {
+            component: FactoryOutputComponent {
                 commodity_out: 1,
                 energy_required,
                 resource_required,
@@ -617,7 +659,7 @@ impl Factory {
 
         let mut components = HashMap::new();
         components.insert(ComponentName::EnergyComponent, energy_component);
-        components.insert(ComponentName::CommodityOutputComponent, commodity_component);
+        components.insert(ComponentName::FactoryOutputComponent, commodity_component);
 
         let blueprint = StructureBlueprint { components };
 
@@ -640,6 +682,76 @@ impl Factory {
     }
 }
 
+// Refinery
+pub struct Refinery {
+    blueprint: StructureBlueprint,
+    resources: Vec<Manufactured>,
+}
+
+impl Debug for Refinery {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Refinery {
+    pub fn new(resources: Vec<Manufactured>) -> Refinery {
+        let energy_component = ComponentGroup::Energy {
+            component: EnergyComponent {
+                energy_out: 0,
+                energy_in: 50,
+            },
+        };
+
+        let mut manufactured_out = HashMap::new();
+        let mut energy_required = HashMap::new();
+        let mut resource_required = HashMap::new();
+
+        for resource in resources.iter().clone() {
+            manufactured_out.insert(resource.clone(), 1);
+            energy_required.insert(
+                resource.clone(),
+                ResourceRequireFactory::energy_for_manufactured(&resource),
+            );
+            resource_required.insert(
+                resource.clone(),
+                ResourceRequireFactory::resources_for_manufactured(&resource),
+            );
+        }
+
+        let commodity_component = ComponentGroup::RefineryOutput {
+            component: RefineryOutputComponent {
+                manufactured_out,
+                energy_required,
+                resource_required,
+            },
+        };
+
+        let mut components = HashMap::new();
+        components.insert(ComponentName::EnergyComponent, energy_component);
+        components.insert(ComponentName::FactoryOutputComponent, commodity_component);
+
+        let blueprint = StructureBlueprint { components };
+
+        return Refinery {
+            blueprint,
+            resources,
+        };
+    }
+
+    pub fn blueprint(&self) -> &StructureBlueprint {
+        return &self.blueprint;
+    }
+
+    pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
+        return &mut self.blueprint;
+    }
+
+    pub fn resources(&self) {
+        self.resources.iter();
+    }
+}
+
 pub struct StructureFactory {}
 
 impl StructureFactory {
@@ -656,7 +768,7 @@ impl StructureFactory {
                 };
                 Option::from(structure)
             }
-            StructureGroup::Energy => {
+            StructureGroup::Power => {
                 let structure = Structure::PowerPlant {
                     structure: PowerPlant::new(),
                 };
@@ -674,18 +786,24 @@ impl StructureFactory {
                 };
                 Option::from(structure)
             }
-            StructureGroup::Storage => {
-                let structure = Structure::Storage {
-                    structure: Storage::new(
-                        resource_manager.resource_types(),
-                        resource_manager.commodity_types(),
-                    ),
+            StructureGroup::Refinery => {
+                let structure = Structure::Refinery {
+                    structure: Refinery::new(vec![Manufactured::Hydrogen, Manufactured::Oxygen]),
                 };
                 Option::from(structure)
             }
             StructureGroup::Factory => {
                 let structure = Structure::Factory {
                     structure: { Factory::new(commodity_select.selected()) },
+                };
+                Option::from(structure)
+            }
+            StructureGroup::Storage => {
+                let structure = Structure::Storage {
+                    structure: Storage::new(
+                        resource_manager.resource_types(),
+                        resource_manager.commodity_types(),
+                    ),
                 };
                 Option::from(structure)
             }
@@ -697,7 +815,7 @@ impl StructureFactory {
             StructureGroup::Base => {
                 !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Grass)
             }
-            StructureGroup::Energy => {
+            StructureGroup::Power => {
                 !tile.is_resource && (tile.flora == Flora::Sand || tile.flora == Flora::Water)
             }
             StructureGroup::Mine => tile.is_resource,
@@ -706,6 +824,12 @@ impl StructureFactory {
             }
             StructureGroup::Factory => {
                 !tile.is_resource && (tile.flora == Flora::Grass || tile.flora == Flora::Dirt)
+            }
+            StructureGroup::Refinery => {
+                !tile.is_resource
+                    && (tile.flora == Flora::Sand
+                        || tile.flora == Flora::Dirt
+                        || tile.flora == Flora::Grass)
             }
         }
     }

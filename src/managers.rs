@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::ops::{AddAssign, SubAssign};
 
 use crate::component::{ComponentGroup, ComponentName};
-use crate::game::{MapObject, Position, Resource};
+use crate::game::{Commodity, MapObject, Position, Resource};
 use crate::structures::{
-    BatteryTrait, Commodity, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
+    BatteryTrait, EnergyTrait, ResourceOutputTrait, ResourceStorageTrait, Structure,
 };
 
 use std::iter::FromIterator;
@@ -76,9 +76,7 @@ impl EnergyManager {
                 Structure::PowerPlant { structure } => {
                     self.output.add_assign(structure.blueprint().energy_out());
                 }
-                Structure::Mine { .. } => {}
-                Structure::Storage { .. } => {}
-                Structure::Factory { .. } => {}
+                _ => {}
             }
         }
     }
@@ -176,9 +174,7 @@ impl EnergyManager {
                 Structure::PowerPlant { structure } => {
                     self.output.add_assign(structure.blueprint().energy_out());
                 }
-                Structure::Mine { .. } => {}
-                Structure::Storage { .. } => {}
-                Structure::Factory { .. } => {}
+                _ => {}
             }
         }
     }
@@ -200,10 +196,7 @@ impl EnergyManager {
                         self.withdraw_discharge(discharged);
                     }
                 }
-                Structure::PowerPlant { .. } => {}
-                Structure::Mine { .. } => {}
-                Structure::Storage { .. } => {}
-                Structure::Factory { .. } => {}
+                _ => {}
             }
         }
     }
@@ -361,7 +354,6 @@ impl ResourceManager {
             let structure = object.structure.as_mut().unwrap();
 
             match structure {
-                Structure::PowerPlant { .. } => {}
                 Structure::Mine { structure } => {
                     let energy_required = structure.blueprint().energy_in();
                     let resource = structure.resource();
@@ -376,24 +368,15 @@ impl ResourceManager {
                         self.add_resource_deficit(resource, structure.blueprint().resource_out());
                     }
                 }
-                Structure::Base { .. } => {}
-                Structure::Storage { structure } => {
-                    for (resource, amount) in self.resources_mut() {
-                        if *amount > 0 {
-                            let amount_stored = structure
-                                .blueprint_mut()
-                                .resource_add(resource, amount.clone());
-
-                            amount.sub_assign(amount_stored);
-                        }
-                    }
+                Structure::Refinery { .. } => {
+                    // TODO: implement resource collection
                 }
                 Structure::Factory { structure } => {
                     let component = structure
                         .blueprint()
-                        .get_component(&ComponentName::CommodityOutputComponent);
+                        .get_component(&ComponentName::FactoryOutputComponent);
 
-                    if let ComponentGroup::CommodityOutput { component } = component {
+                    if let ComponentGroup::FactoryOutput { component } = component {
                         let has_energy = energy_manager.has_energy(component.energy_required);
                         let has_resources =
                             component
@@ -418,6 +401,18 @@ impl ResourceManager {
                         }
                     }
                 }
+                Structure::Storage { structure } => {
+                    for (resource, amount) in self.resources_mut() {
+                        if *amount > 0 {
+                            let amount_stored = structure
+                                .blueprint_mut()
+                                .resource_add(resource, amount.clone());
+
+                            amount.sub_assign(amount_stored);
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }

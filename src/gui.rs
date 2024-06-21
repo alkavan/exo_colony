@@ -6,13 +6,15 @@ use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 
-use crate::game::{Flora, GameMap, MapObject, MapTile, ObjectManager, Position, Resource};
+use crate::game::{
+    Commodity, Flora, GameMap, Manufactured, MapObject, MapTile, ObjectManager, Position, Resource,
+};
 
 use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{
-    BatteryTrait, Commodity, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint,
-    StructureGroup,
+    BatteryTrait, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint, StructureGroup,
 };
+use itertools::Itertools;
 
 #[derive(Clone, Copy)]
 pub enum BlockType {
@@ -203,6 +205,85 @@ impl MenuSelector<Resource> for MineResourceSelect {
     }
 }
 
+pub struct RefineryResourceSelect {
+    selected: usize,
+    items: Vec<Vec<Manufactured>>,
+    selected_style: Style,
+    default_style: Style,
+}
+
+impl RefineryResourceSelect {
+    pub fn new(items: Vec<Vec<Manufactured>>) -> RefineryResourceSelect {
+        let selected = 0;
+
+        let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
+        let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
+
+        return RefineryResourceSelect {
+            selected,
+            items,
+            selected_style,
+            default_style,
+        };
+    }
+}
+
+impl MenuSelector<Vec<Manufactured>> for RefineryResourceSelect {
+    fn selected(&self) -> Vec<Manufactured> {
+        return self.items[self.selected].clone();
+    }
+
+    fn items(&self) -> Vec<ListItem> {
+        let list = self
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, structure_group)| {
+                let content = self.style(structure_group.iter().join(", "), index);
+                ListItem::new(content)
+            })
+            .collect();
+
+        return list;
+    }
+
+    fn next(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == self.items.len() - 1 {
+            self.selected = 0;
+            return;
+        }
+
+        self.selected += 1;
+    }
+
+    fn previous(&mut self) {
+        if self.items.len() == 0 {
+            return;
+        }
+
+        if self.selected == 0 {
+            self.selected = self.items.len() - 1;
+            return;
+        }
+
+        self.selected -= 1;
+    }
+
+    fn style(&self, name: String, index: usize) -> Span {
+        let style = if index == self.selected {
+            self.selected_style
+        } else {
+            self.default_style
+        };
+
+        return Span::styled(name, style);
+    }
+}
+
 pub struct FactoryCommoditySelect {
     selected: usize,
     items: Vec<Commodity>,
@@ -338,7 +419,6 @@ pub fn build_container_block(title: String) -> Block<'static> {
 pub fn draw_stats_widget(
     storage: &ResourceManager,
     energy: &EnergyManager,
-    position: Position,
     elapsed: Duration,
     update_delta: u128,
     draw_delta: u128,
@@ -429,8 +509,8 @@ pub fn draw_structure_menu_widget(menu: &Menu) -> List {
     return list;
 }
 
-pub fn draw_resource_select_widget(menu: &MineResourceSelect) -> List {
-    let block = build_container_block("Resource Select".to_string());
+pub fn draw_mine_select_widget(menu: &MineResourceSelect) -> List {
+    let block = build_container_block("Mine Select".to_string());
 
     let list = List::new(menu.items())
         .block(block)
@@ -439,8 +519,18 @@ pub fn draw_resource_select_widget(menu: &MineResourceSelect) -> List {
     return list;
 }
 
-pub fn draw_commodity_select_widget(menu: &FactoryCommoditySelect) -> List {
-    let block = build_container_block("Commodity Select".to_string());
+pub fn draw_factory_select_widget(menu: &FactoryCommoditySelect) -> List {
+    let block = build_container_block("Factory Select".to_string());
+
+    let list = List::new(menu.items())
+        .block(block)
+        .style(Style::default().fg(Color::White));
+
+    return list;
+}
+
+pub fn draw_refinery_select_widget(menu: &RefineryResourceSelect) -> List {
+    let block = build_container_block("Refinery Select".to_string());
 
     let list = List::new(menu.items())
         .block(block)
@@ -532,6 +622,8 @@ pub fn draw_info_widget(
                 Structure::Mine { ref structure } => {
                     items.push(ListItem::new(format_mine_resource(structure.resource())));
                 }
+                Structure::Refinery { .. } => {}
+                Structure::Factory { .. } => {}
                 Structure::Storage { ref structure } => {
                     for resource in structure.blueprint().resources() {
                         items.push(ListItem::new(format_resource_capacity(
@@ -540,7 +632,6 @@ pub fn draw_info_widget(
                         )));
                     }
                 }
-                Structure::Factory { .. } => {}
             }
         }
     }
@@ -567,8 +658,9 @@ fn get_structure_symbol(structure: &Structure) -> char {
         Structure::Base { .. } => 'B',
         Structure::PowerPlant { .. } => 'P',
         Structure::Mine { .. } => 'M',
-        Structure::Storage { .. } => 'S',
         Structure::Factory { .. } => 'F',
+        Structure::Refinery { .. } => 'R',
+        Structure::Storage { .. } => 'S',
     }
 }
 

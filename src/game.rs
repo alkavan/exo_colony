@@ -58,7 +58,7 @@ impl Display for Resource {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ManufacturedResource {
+pub enum Manufactured {
     Silicon,
     Food,
     Steel,
@@ -66,9 +66,25 @@ pub enum ManufacturedResource {
     Oxygen,
     Gravel,
     Hydrogen,
+    FuelPellet,
 }
 
-impl Display for ManufacturedResource {
+impl Display for Manufactured {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum Commodity {
+    Concrete,
+    Semiconductor,
+    Fuel,
+    Glass,
+    FuelRod,
+}
+
+impl Display for Commodity {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "{:?}", self)
     }

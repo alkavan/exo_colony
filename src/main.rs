@@ -24,10 +24,12 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
-use crate::game::{MapController, Resource};
-use crate::gui::{FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect};
+use crate::game::{Commodity, Manufactured, MapController, Resource};
+use crate::gui::{
+    FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect, RefineryResourceSelect,
+};
 use crate::managers::{EnergyManager, ResourceManager};
-use crate::structures::{Commodity, StructureFactory, StructureGroup};
+use crate::structures::{StructureFactory, StructureGroup};
 
 use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
@@ -66,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let storage_commodities = vec![
         Commodity::Concrete,
-        Commodity::Electronics,
+        Commodity::Semiconductor,
         Commodity::Fuel,
         Commodity::Glass,
     ];
@@ -75,13 +77,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut menu = Menu::new(vec![
         StructureGroup::Base,
-        StructureGroup::Energy,
+        StructureGroup::Power,
         StructureGroup::Mine,
-        StructureGroup::Storage,
+        StructureGroup::Refinery,
         StructureGroup::Factory,
+        StructureGroup::Storage,
     ]);
 
-    let mut resource_select = MineResourceSelect::new(vec![
+    let mut mine_select = MineResourceSelect::new(vec![
         Resource::Iron,
         Resource::Aluminum,
         Resource::Carbon,
@@ -90,11 +93,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         Resource::Water,
     ]);
 
-    let mut commodity_select = FactoryCommoditySelect::new(vec![
+    let mut refinery_select = RefineryResourceSelect::new(vec![
+        vec![Manufactured::Silicon],
+        vec![Manufactured::Food],
+        vec![Manufactured::Steel],
+        vec![Manufactured::BioPlastic],
+        vec![Manufactured::Hydrogen, Manufactured::Oxygen],
+        vec![Manufactured::FuelPellet],
+    ]);
+
+    let mut factory_select = FactoryCommoditySelect::new(vec![
         Commodity::Concrete,
-        Commodity::Electronics,
+        Commodity::Semiconductor,
         Commodity::Fuel,
         Commodity::Glass,
+        Commodity::FuelRod,
     ]);
 
     // The game controller, work with the Map object.
@@ -123,7 +136,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let stats_widget = gui::draw_stats_widget(
                 &resource_manager,
                 &energy_manager,
-                controller.position(),
                 elapsed,
                 update_tick.delta(),
                 draw_tick.delta(),
@@ -139,17 +151,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             match menu.selected() {
                 StructureGroup::Base => {}
-                StructureGroup::Energy => {}
+                StructureGroup::Power => {}
                 StructureGroup::Mine => {
-                    let resource_select_widget = gui::draw_resource_select_widget(&resource_select);
+                    let resource_select_widget = gui::draw_mine_select_widget(&mine_select);
                     frame.render_widget(resource_select_widget, menu_layout[1]);
                 }
-                StructureGroup::Storage => {}
                 StructureGroup::Factory => {
-                    let commodity_select_widget =
-                        gui::draw_commodity_select_widget(&commodity_select);
+                    let commodity_select_widget = gui::draw_factory_select_widget(&factory_select);
                     frame.render_widget(commodity_select_widget, menu_layout[1]);
                 }
+                StructureGroup::Refinery => {
+                    let commodity_select_widget =
+                        gui::draw_refinery_select_widget(&refinery_select);
+                    frame.render_widget(commodity_select_widget, menu_layout[1]);
+                }
+                StructureGroup::Storage => {}
             }
 
             let info_panel = gui::draw_info_widget(
@@ -225,7 +241,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                             &structure_group,
                                             object,
                                             &resource_manager,
-                                            &commodity_select,
+                                            &factory_select,
                                         );
 
                                         if structure.is_some() {
@@ -244,25 +260,31 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 }
                                 KeyCode::Home => match menu.selected() {
                                     StructureGroup::Base => {}
-                                    StructureGroup::Energy => {}
+                                    StructureGroup::Power => {}
                                     StructureGroup::Mine => {
-                                        resource_select.previous();
+                                        mine_select.previous();
+                                    }
+                                    StructureGroup::Refinery => {
+                                        refinery_select.previous();
+                                    }
+                                    StructureGroup::Factory => {
+                                        factory_select.previous();
                                     }
                                     StructureGroup::Storage => {}
-                                    StructureGroup::Factory => {
-                                        commodity_select.previous();
-                                    }
                                 },
                                 KeyCode::End => match menu.selected() {
                                     StructureGroup::Base => {}
-                                    StructureGroup::Energy => {}
+                                    StructureGroup::Power => {}
                                     StructureGroup::Mine => {
-                                        resource_select.next();
+                                        mine_select.next();
+                                    }
+                                    StructureGroup::Refinery => {
+                                        refinery_select.next();
+                                    }
+                                    StructureGroup::Factory => {
+                                        factory_select.next();
                                     }
                                     StructureGroup::Storage => {}
-                                    StructureGroup::Factory => {
-                                        commodity_select.next();
-                                    }
                                 },
                                 KeyCode::PageUp => {
                                     menu.previous();

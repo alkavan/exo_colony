@@ -1,5 +1,7 @@
+use crate::game::Commodity;
+use crate::game::Manufactured;
 use crate::game::Resource;
-use crate::structures::Commodity;
+
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -9,11 +11,12 @@ use std::ops::AddAssign;
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum ComponentName {
     EnergyComponent,
-    ResourceOutputComponent,
+    MineOutputComponent,
     ResourceStorageComponent,
     CommodityStorageComponent,
     BatteryComponent,
-    CommodityOutputComponent,
+    RefineryOutputComponent,
+    FactoryOutputComponent,
 }
 
 impl Display for ComponentName {
@@ -34,19 +37,25 @@ pub struct BatteryComponent {
     pub stored: u64,
 }
 
-pub struct ResourceOutputComponent {
+pub struct MineOutputComponent {
     pub resource_out: u64,
+}
+
+pub struct RefineryOutputComponent {
+    pub manufactured_out: HashMap<Manufactured, u64>,
+    pub energy_required: HashMap<Manufactured, u64>,
+    pub resource_required: HashMap<Manufactured, HashMap<Resource, u64>>,
+}
+
+pub struct FactoryOutputComponent {
+    pub commodity_out: u64,
+    pub energy_required: u64,
+    pub resource_required: HashMap<Resource, u64>,
 }
 
 pub struct ResourceStorageComponent {
     pub capacity: HashMap<Resource, u64>,
     pub resources: HashMap<Resource, u64>,
-}
-
-pub struct CommodityOutputComponent {
-    pub commodity_out: u64,
-    pub energy_required: u64,
-    pub resource_required: HashMap<Resource, u64>,
 }
 
 pub struct CommodityStorageComponent {
@@ -95,8 +104,14 @@ impl ResourceStorageComponent {
     }
 }
 
-impl CommodityOutputComponent {
+impl FactoryOutputComponent {
     pub fn resources(&self) -> Iter<'_, Resource, u64> {
+        self.resource_required.iter()
+    }
+}
+
+impl RefineryOutputComponent {
+    pub fn resources(&self) -> Iter<'_, Manufactured, HashMap<Resource, u64>> {
         self.resource_required.iter()
     }
 }
@@ -146,8 +161,14 @@ pub enum ComponentGroup {
     Energy {
         component: EnergyComponent,
     },
-    ResourceOutput {
-        component: ResourceOutputComponent,
+    MineOutput {
+        component: MineOutputComponent,
+    },
+    RefineryOutput {
+        component: RefineryOutputComponent,
+    },
+    FactoryOutput {
+        component: FactoryOutputComponent,
     },
     ResourceStorage {
         component: ResourceStorageComponent,
@@ -158,18 +179,16 @@ pub enum ComponentGroup {
     Battery {
         component: BatteryComponent,
     },
-    CommodityOutput {
-        component: CommodityOutputComponent,
-    },
 }
 
 impl Display for ComponentGroup {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let name = match self {
             ComponentGroup::Energy { .. } => ComponentName::EnergyComponent,
-            ComponentGroup::ResourceOutput { .. } => ComponentName::ResourceOutputComponent,
+            ComponentGroup::MineOutput { .. } => ComponentName::MineOutputComponent,
+            ComponentGroup::FactoryOutput { .. } => ComponentName::FactoryOutputComponent,
+            ComponentGroup::RefineryOutput { .. } => ComponentName::RefineryOutputComponent,
             ComponentGroup::ResourceStorage { .. } => ComponentName::ResourceStorageComponent,
-            ComponentGroup::CommodityOutput { .. } => ComponentName::CommodityOutputComponent,
             ComponentGroup::CommodityStorage { .. } => ComponentName::CommodityStorageComponent,
             ComponentGroup::Battery { .. } => ComponentName::BatteryComponent,
         };
