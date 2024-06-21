@@ -125,18 +125,20 @@ impl ResourceManager {
 
     pub fn deposit_resource(&mut self, resource_type: &ResourceGroup, amount: u64) -> u64 {
         let stored = self.resources.get_mut(&resource_type).unwrap();
-        *stored += amount;
-        return *stored;
+        stored.add_assign(amount);
+        return stored.clone();
     }
 
     pub fn withdraw_resource(&mut self, resource_type: &ResourceGroup, amount: u64) -> u64 {
         let stored = self.resources.get_mut(&resource_type).unwrap();
+
         if amount > *stored {
-            let available = *stored;
-            *stored = 0;
+            let available = stored.clone();
+            stored.sub_assign(available);
             return available;
         }
-        *stored -= amount;
+
+        stored.sub_assign(amount);
         return amount;
     }
 
@@ -159,22 +161,23 @@ impl ResourceManager {
         return self.commodities.iter_mut();
     }
 
-    pub fn deposit_commodity(&mut self, resource_type: &CommodityGroup, value: u64) -> bool {
-        if value == 0 {
-            return false;
-        }
-        let amount = self.commodities.get_mut(&resource_type).unwrap();
-        *amount += value;
-        return true;
+    pub fn deposit_commodity(&mut self, commodity_type: &CommodityGroup, value: u64) -> u64 {
+        let stored = self.commodities.get_mut(&commodity_type).unwrap();
+        stored.add_assign(value);
+        return stored.clone();
     }
 
-    pub fn withdraw_commodity(&mut self, resource_type: &CommodityGroup, value: u64) -> bool {
-        let amount = self.commodities.get_mut(&resource_type).unwrap();
-        if *amount < value {
-            return false;
+    pub fn withdraw_commodity(&mut self, commodity_type: &CommodityGroup, amount: u64) -> u64 {
+        let stored = self.commodities.get_mut(&commodity_type).unwrap();
+
+        if amount > *stored {
+            let available = stored.clone();
+            stored.sub_assign(available);
+            return available;
         }
-        *amount -= value;
-        return true;
+
+        stored.sub_assign(amount);
+        return amount;
     }
 
     fn deficit_commodity(&mut self, resource_type: &CommodityGroup, amount: u64) {
