@@ -20,6 +20,7 @@ pub enum BlockType {
     Dark,
     Medium,
     Light,
+    Selected,
 }
 
 impl From<BlockType> for char {
@@ -29,6 +30,7 @@ impl From<BlockType> for char {
             BlockType::Dark => '▓',
             BlockType::Medium => '▓',
             BlockType::Light => '░',
+            BlockType::Selected => '◆',
         }
     }
 }
@@ -548,6 +550,26 @@ pub fn draw_info_widget(
     return list;
 }
 
+fn get_flora_style(flora: &Flora) -> Style {
+    match flora {
+        Flora::Water => Style::default().bg(Color::Rgb(32, 178, 170)),
+        Flora::Sand => Style::default().bg(Color::Yellow),
+        Flora::Dirt => Style::default().bg(Color::Rgb(139, 69, 19)),
+        Flora::Grass => Style::default().bg(Color::Rgb(0, 128, 0)),
+        Flora::Rock => Style::default().bg(Color::Black),
+    }
+}
+
+fn get_structure_symbol(structure: &Structure) -> char {
+    match structure {
+        Structure::Base { .. } => 'B',
+        Structure::PowerPlant { .. } => 'P',
+        Structure::Mine { .. } => 'M',
+        Structure::Storage { .. } => 'S',
+        Structure::Factory { .. } => 'F',
+    }
+}
+
 pub fn render_map(
     map: &GameMap,
     objects: &ObjectManager,
@@ -555,14 +577,6 @@ pub fn render_map(
 ) -> Vec<Spans<'static>> {
     let y = position.y as usize;
     let x = position.x as usize;
-
-    let water_style = Style::default().bg(Color::Rgb(32, 178, 170));
-    let sand_style = Style::default().bg(Color::Yellow);
-    let dirt_style = Style::default().bg(Color::Rgb(139, 69, 19));
-    let grass_style = Style::default().bg(Color::Rgb(0, 128, 0));
-    let rock_style = Style::default().bg(Color::Black);
-
-    let selected_style = Style::default().bg(Color::White);
 
     let map_render = map.cache();
 
@@ -576,50 +590,12 @@ pub fn render_map(
                 .map(|(j, tile)| {
                     let selected = y == i && x == j;
 
-                    let style = match tile.flora {
-                        Flora::Water => {
-                            if selected == true {
-                                selected_style
-                            } else {
-                                water_style
-                            }
-                        }
-                        Flora::Sand => {
-                            if selected == true {
-                                selected_style
-                            } else {
-                                sand_style
-                            }
-                        }
-                        Flora::Dirt => {
-                            if selected == true {
-                                selected_style
-                            } else {
-                                dirt_style
-                            }
-                        }
-                        Flora::Grass => {
-                            if selected == true {
-                                selected_style
-                            } else {
-                                grass_style
-                            }
-                        }
-                        Flora::Rock => {
-                            if selected == true {
-                                selected_style
-                            } else {
-                                rock_style
-                            }
-                        }
-                    };
+                    let mut style = get_flora_style(&tile.flora);
 
-                    let block_symbol = match tile.flora {
-                        Flora::Water => BlockType::Light,
-                        Flora::Sand => BlockType::Light,
-                        Flora::Dirt => BlockType::Light,
-                        Flora::Grass => BlockType::Light,
-                        Flora::Rock => BlockType::Light,
+                    let block_symbol = if selected {
+                        BlockType::Selected
+                    } else {
+                        BlockType::Light
                     };
 
                     let position = Position::new(j as i16, i as i16);
@@ -628,13 +604,11 @@ pub fn render_map(
                     if object.is_some() {
                         let structure = object.unwrap().structure.as_ref();
                         if structure.is_some() {
-                            let structure_symbol = match structure.unwrap() {
-                                Structure::Base { .. } => 'B',
-                                Structure::PowerPlant { .. } => 'P',
-                                Structure::Mine { .. } => 'M',
-                                Structure::Storage { .. } => 'S',
-                                Structure::Factory { .. } => 'F',
-                            };
+                            let structure_symbol = get_structure_symbol(structure.unwrap());
+
+                            if selected {
+                                style = style.fg(Color::Red);
+                            }
 
                             return Span::styled(char::from(structure_symbol).to_string(), style);
                         }
