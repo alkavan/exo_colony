@@ -339,6 +339,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     terminal.clear()?;
                                     break;
                                 }
+                                _ => {}
                             }
                         }
                         Event::Mouse(event) => {
@@ -350,6 +351,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             let log = util::get_log(message);
                             log_buffer.push_str(&log);
                         }
+                        _ => {}
                     }
                 }
             }
