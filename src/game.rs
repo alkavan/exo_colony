@@ -10,7 +10,7 @@ use worldgen::world::{Size, Tile, World};
 
 use crate::structures::{Structure, StructureGroup};
 use rand::prelude::SliceRandom;
-use rand::Rng;
+use rand::RngExt;
 use std::iter::FromIterator;
 
 type WorldCache = Vec<Vec<MapTile>>;
@@ -94,14 +94,14 @@ pub struct ResourceFactory {}
 
 impl ResourceFactory {
     fn random_resource(resources: &mut Vec<Resource>) -> Resource {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         resources.shuffle(&mut rng);
         resources.get(0).unwrap().clone()
     }
 
     fn random_amount(from: u64, to: u64) -> u64 {
-        let mut rng = rand::thread_rng();
-        rng.gen_range(from..to)
+        let mut rng = rand::rng();
+        rng.random_range(from..to)
     }
 
     fn random_resource_amount(resource: Resource) -> u64 {

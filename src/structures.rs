@@ -274,7 +274,7 @@ impl ResourceStorageTrait for StructureBlueprint {
         let component = self.get_component_mut(&ComponentName::ResourceStorageComponent);
 
         match component {
-            ComponentGroup::ResourceStorage { ref mut component } => {
+            ComponentGroup::ResourceStorage { component } => {
                 let free_capacity = component.capacity_free(group);
 
                 if free_capacity <= 0 {
@@ -326,7 +326,7 @@ impl CommodityStorageTrait for StructureBlueprint {
         let component = self.get_component_mut(&ComponentName::CommodityStorageComponent);
 
         match component {
-            ComponentGroup::CommodityStorage { ref mut component } => {
+            ComponentGroup::CommodityStorage { component } => {
                 let free_capacity = component.capacity_free(group);
 
                 if free_capacity <= 0 {

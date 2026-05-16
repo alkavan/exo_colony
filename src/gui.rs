@@ -649,7 +649,7 @@ pub fn draw_info_widget(
             items.push(ListItem::new(structure_content));
 
             match structure {
-                Structure::Base { ref structure } => {
+                Structure::Base { structure } => {
                     items.push(ListItem::new(format_energy_io(structure.blueprint())));
                     items.push(ListItem::new(format_battery(structure.blueprint())));
 
@@ -661,12 +661,12 @@ pub fn draw_info_widget(
                     }
                 }
                 Structure::PowerPlant { .. } => {}
-                Structure::Mine { ref structure } => {
+                Structure::Mine { structure } => {
                     items.push(ListItem::new(format_mine_resource(structure.resource())));
                 }
                 Structure::Refinery { .. } => {}
                 Structure::Factory { .. } => {}
-                Structure::Storage { ref structure } => {
+                Structure::Storage { structure } => {
                     for resource in structure.blueprint().resources() {
                         items.push(ListItem::new(format_resource_capacity(
                             structure.blueprint(),
