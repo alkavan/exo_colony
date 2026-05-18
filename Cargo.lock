@@ -184,7 +184,7 @@ dependencies = [
 
 [[package]]
 name = "exo_colony"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "crossterm 0.29.0",

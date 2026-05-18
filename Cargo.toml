@@ -1,6 +1,6 @@
 [package]
 name = "exo_colony"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Igal Alkon <igal@alkontek.com>"]
 edition = "2024"
 description = "A real-time simulation game about building a colony on an exo-planet for terminal lovers."
