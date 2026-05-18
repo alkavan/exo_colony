@@ -41,10 +41,10 @@ impl From<BlockType> for char {
 
 pub trait MenuSelector<T> {
     fn selected(&self) -> T;
-    fn items(&self) -> Vec<ListItem>;
+    fn items(&self) -> Vec<ListItem<'static>>;
     fn next(&mut self);
     fn previous(&mut self);
-    fn style(&self, name: String, index: usize) -> Span;
+    fn style(&self, name: String, index: usize) -> Span<'_>;
 }
 
 pub struct Menu {
@@ -72,21 +72,26 @@ impl Menu {
 
 impl MenuSelector<StructureGroup> for Menu {
     fn selected(&self) -> StructureGroup {
-        return self.items[self.selected].clone();
+        self.items[self.selected].clone()
     }
 
-    fn items(&self) -> Vec<ListItem> {
+    fn items(&self) -> Vec<ListItem<'static>> {
         let list = self
             .items
             .iter()
             .enumerate()
             .map(|(index, structure_group)| {
-                let content = self.style(structure_group.to_string(), index);
+                let style = if index == self.selected {
+                    self.selected_style
+                } else {
+                    self.default_style
+                };
+                let content = Span::styled(structure_group.to_string(), style);
                 ListItem::new(content)
             })
             .collect();
 
-        return list;
+        list
     }
 
     fn next(&mut self) {
@@ -115,14 +120,14 @@ impl MenuSelector<StructureGroup> for Menu {
         self.selected -= 1;
     }
 
-    fn style(&self, name: String, index: usize) -> Span {
+    fn style(&self, name: String, index: usize) -> Span<'_> {
         let style = if index == self.selected {
             self.selected_style
         } else {
             self.default_style
         };
 
-        return Span::styled(name, style);
+        Span::styled(name, style)
     }
 }
 
@@ -140,32 +145,37 @@ impl MineResourceSelect {
         let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
         let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
 
-        return MineResourceSelect {
+        MineResourceSelect {
             selected,
             items,
             selected_style,
             default_style,
-        };
+        }
     }
 }
 
 impl MenuSelector<Resource> for MineResourceSelect {
     fn selected(&self) -> Resource {
-        return self.items[self.selected].clone();
+        self.items[self.selected].clone()
     }
 
-    fn items(&self) -> Vec<ListItem> {
+    fn items(&self) -> Vec<ListItem<'static>> {
         let list = self
             .items
             .iter()
             .enumerate()
             .map(|(index, structure_group)| {
-                let content = self.style(structure_group.to_string(), index);
+                let style = if index == self.selected {
+                    self.selected_style
+                } else {
+                    self.default_style
+                };
+                let content = Span::styled(structure_group.to_string(), style);
                 ListItem::new(content)
             })
             .collect();
 
-        return list;
+        list
     }
 
     fn next(&mut self) {
@@ -194,14 +204,14 @@ impl MenuSelector<Resource> for MineResourceSelect {
         self.selected -= 1;
     }
 
-    fn style(&self, name: String, index: usize) -> Span {
+    fn style(&self, name: String, index: usize) -> Span<'_> {
         let style = if index == self.selected {
             self.selected_style
         } else {
             self.default_style
         };
 
-        return Span::styled(name, style);
+        Span::styled(name, style)
     }
 }
 
@@ -219,32 +229,37 @@ impl RefineryResourceSelect {
         let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
         let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
 
-        return RefineryResourceSelect {
+        RefineryResourceSelect {
             selected,
             items,
             selected_style,
             default_style,
-        };
+        }
     }
 }
 
 impl MenuSelector<Vec<Manufactured>> for RefineryResourceSelect {
     fn selected(&self) -> Vec<Manufactured> {
-        return self.items[self.selected].clone();
+        self.items[self.selected].clone()
     }
 
-    fn items(&self) -> Vec<ListItem> {
+    fn items(&self) -> Vec<ListItem<'static>> {
         let list = self
             .items
             .iter()
             .enumerate()
             .map(|(index, structure_group)| {
-                let content = self.style(structure_group.iter().join(", "), index);
+                let style = if index == self.selected {
+                    self.selected_style
+                } else {
+                    self.default_style
+                };
+                let content = Span::styled(structure_group.iter().join(", "), style);
                 ListItem::new(content)
             })
             .collect();
 
-        return list;
+        list
     }
 
     fn next(&mut self) {
@@ -273,14 +288,14 @@ impl MenuSelector<Vec<Manufactured>> for RefineryResourceSelect {
         self.selected -= 1;
     }
 
-    fn style(&self, name: String, index: usize) -> Span {
+    fn style(&self, name: String, index: usize) -> Span<'_> {
         let style = if index == self.selected {
             self.selected_style
         } else {
             self.default_style
         };
 
-        return Span::styled(name, style);
+        Span::styled(name, style)
     }
 }
 
@@ -298,32 +313,37 @@ impl FactoryCommoditySelect {
         let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
         let default_style = Style::default().bg(Color::Gray).fg(Color::Black);
 
-        return FactoryCommoditySelect {
+        FactoryCommoditySelect {
             selected,
             items,
             selected_style,
             default_style,
-        };
+        }
     }
 }
 
 impl MenuSelector<Commodity> for FactoryCommoditySelect {
     fn selected(&self) -> Commodity {
-        return self.items[self.selected].clone();
+        self.items[self.selected].clone()
     }
 
-    fn items(&self) -> Vec<ListItem> {
+    fn items(&self) -> Vec<ListItem<'static>> {
         let list = self
             .items
             .iter()
             .enumerate()
             .map(|(index, structure_group)| {
-                let content = self.style(structure_group.to_string(), index);
+                let style = if index == self.selected {
+                    self.selected_style
+                } else {
+                    self.default_style
+                };
+                let content = Span::styled(structure_group.to_string(), style);
                 ListItem::new(content)
             })
             .collect();
 
-        return list;
+        list
     }
 
     fn next(&mut self) {
@@ -352,14 +372,14 @@ impl MenuSelector<Commodity> for FactoryCommoditySelect {
         self.selected -= 1;
     }
 
-    fn style(&self, name: String, index: usize) -> Span {
+    fn style(&self, name: String, index: usize) -> Span<'_> {
         let style = if index == self.selected {
             self.selected_style
         } else {
             self.default_style
         };
 
-        return Span::styled(name, style);
+        Span::styled(name, style)
     }
 }
 
@@ -373,11 +393,11 @@ pub fn build_main_layout(area: Rect) -> Vec<Rect> {
                 Constraint::Percentage(50),
                 Constraint::Percentage(20),
             ]
-            .as_ref(),
+                .as_ref(),
         )
         .split(area);
 
-    return layout;
+    layout
 }
 
 pub fn build_left_layout(area: Rect) -> Vec<Rect> {
@@ -385,7 +405,7 @@ pub fn build_left_layout(area: Rect) -> Vec<Rect> {
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
         .split(area);
 
-    return layout;
+    layout
 }
 
 pub fn build_right_layout(area: Rect) -> Vec<Rect> {
@@ -393,7 +413,7 @@ pub fn build_right_layout(area: Rect) -> Vec<Rect> {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(area);
 
-    return layout;
+    layout
 }
 
 pub fn build_menu_layout(area: Rect) -> Vec<Rect> {
@@ -402,7 +422,7 @@ pub fn build_menu_layout(area: Rect) -> Vec<Rect> {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(area);
 
-    return layout;
+    layout
 }
 
 pub fn build_colony_layout(area: Rect) -> Vec<Rect> {
@@ -411,7 +431,7 @@ pub fn build_colony_layout(area: Rect) -> Vec<Rect> {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(area);
 
-    return layout;
+    layout
 }
 
 pub fn build_container_block(title: String) -> Block<'static> {
@@ -422,7 +442,7 @@ pub fn build_container_block(title: String) -> Block<'static> {
         .borders(Borders::ALL)
         .style(style);
 
-    return block;
+    block
 }
 
 pub fn draw_stats_widget_left(
@@ -472,11 +492,9 @@ pub fn draw_stats_widget_left(
 
     let block = build_container_block("Colony Information".to_string());
 
-    let list = List::new(items)
+    List::new(items)
         .block(block)
-        .style(Style::default().fg(Color::White));
-
-    return list;
+        .style(Style::default().fg(Color::White))
 }
 
 pub fn draw_stats_widget_right(storage: &ResourceManager) -> List<'static> {
@@ -510,14 +528,12 @@ pub fn draw_stats_widget_right(storage: &ResourceManager) -> List<'static> {
 
     let block = build_container_block("Colony Information".to_string());
 
-    let list = List::new(items)
+    List::new(items)
         .block(block)
-        .style(Style::default().fg(Color::White));
-
-    return list;
+        .style(Style::default().fg(Color::White))
 }
 
-pub fn draw_console_widget(buffer: &String) -> Paragraph {
+pub fn draw_console_widget(buffer: &String) -> Paragraph<'_> {
     let block = build_container_block("Console".to_string());
 
     let style = Style::default();
@@ -532,57 +548,47 @@ pub fn draw_console_widget(buffer: &String) -> Paragraph {
         .style(style)
         .wrap(Wrap { trim: true });
 
-    return paragraph;
+    paragraph
 }
 
 pub fn draw_map_block() -> Block<'static> {
-    let block = build_container_block("Map".to_string()).border_type(BorderType::Thick);
-
-    return block;
+    build_container_block("Map".to_string()).border_type(BorderType::Thick)
 }
 
-pub fn draw_structure_menu_widget(menu: &Menu) -> List {
+pub fn draw_structure_menu_widget(menu: &Menu) -> List<'static> {
     let block = build_container_block("Build Menu".to_string());
 
-    let list = List::new(menu.items())
+    List::new(menu.items())
         .block(block)
-        .style(Style::default().fg(Color::White));
-
-    return list;
+        .style(Style::default().fg(Color::White))
 }
 
-pub fn draw_mine_select_widget(menu: &MineResourceSelect) -> List {
+pub fn draw_mine_select_widget(menu: &MineResourceSelect) -> List<'static> {
     let block = build_container_block("Mine Select".to_string());
 
-    let list = List::new(menu.items())
+    List::new(menu.items())
         .block(block)
-        .style(Style::default().fg(Color::White));
-
-    return list;
+        .style(Style::default().fg(Color::White))
 }
 
-pub fn draw_factory_select_widget(menu: &FactoryCommoditySelect) -> List {
+pub fn draw_factory_select_widget(menu: &FactoryCommoditySelect) -> List<'static> {
     let block = build_container_block("Factory Select".to_string());
 
-    let list = List::new(menu.items())
+    List::new(menu.items())
         .block(block)
-        .style(Style::default().fg(Color::White));
-
-    return list;
+        .style(Style::default().fg(Color::White))
 }
 
-pub fn draw_refinery_select_widget(menu: &RefineryResourceSelect) -> List {
+pub fn draw_refinery_select_widget(menu: &RefineryResourceSelect) -> List<'static> {
     let block = build_container_block("Refinery Select".to_string());
 
-    let list = List::new(menu.items())
+    List::new(menu.items())
         .block(block)
-        .style(Style::default().fg(Color::White));
-
-    return list;
+        .style(Style::default().fg(Color::White))
 }
 
 pub fn format_mine_resource(resource_group: &Resource) -> String {
-    return format!("Resource: {}", resource_group.to_string());
+    format!("Resource: {}", resource_group.to_string())
 }
 
 pub fn format_resource_capacity(
@@ -592,32 +598,32 @@ pub fn format_resource_capacity(
     let capacity = ResourceStorageTrait::capacity(blueprint, resource_group);
     let resource = ResourceStorageTrait::resource(blueprint, resource_group);
 
-    return format!(
+    format!(
         "{:<10} ({:>8} / {:<8})",
         resource_group.to_string(),
         resource,
         capacity
-    );
+    )
 }
 
 pub fn format_energy_io(blueprint: &StructureBlueprint) -> String {
-    return format!(
+    format!(
         "{:<10} ({:>8} / {:<8})",
         "Energy I/O".to_string(),
         blueprint.energy_in().to_string(),
         blueprint.energy_out().to_string(),
-    );
+    )
 }
 
 pub fn format_battery(blueprint: &StructureBlueprint) -> String {
     let stored = BatteryTrait::stored(blueprint);
     let capacity = BatteryTrait::capacity(blueprint);
-    return format!(
+    format!(
         "{:<10} ({:>8} / {:<8})",
         "Battery".to_string(),
         stored,
         capacity,
-    );
+    )
 }
 
 pub fn draw_info_widget(
@@ -678,11 +684,9 @@ pub fn draw_info_widget(
         }
     }
 
-    let list = List::new(items)
+    List::new(items)
         .block(block)
-        .style(Style::default().fg(Color::White));
-
-    return list;
+        .style(Style::default().fg(Color::White))
 }
 
 fn get_flora_style(flora: &Flora) -> Style {
@@ -771,15 +775,13 @@ pub fn render_map(
         })
         .collect();
 
-    return text;
+    text
 }
 
 pub fn draw_map_widget(text: &Vec<Spans<'static>>) -> Paragraph<'static> {
-    let p = Paragraph::new(text.clone())
+    Paragraph::new(text.clone())
         .block(Block::default().borders(Borders::NONE))
         .style(Style::default().bg(Color::Rgb(0, 0, 0)))
         .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true });
-
-    return p;
+        .wrap(Wrap { trim: true })
 }
