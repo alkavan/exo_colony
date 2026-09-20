@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2021-2026 Igal Alkon
+// SPDX-License-Identifier: Zlib
+
 //! Terminal backend selection for `tui`.
 //!
 //! Availability is feature-gated so the crate compiles with either backend:

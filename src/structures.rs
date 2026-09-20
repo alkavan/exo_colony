@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2021-2026 Igal Alkon
+// SPDX-License-Identifier: Zlib
+
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::ops::{AddAssign, Sub, SubAssign};

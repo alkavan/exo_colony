@@ -1,11 +1,13 @@
+# SPDX-FileCopyrightText: 2021-2026 Igal Alkon
+# SPDX-License-Identifier: Zlib
+
 [package]
 name = "exo_colony"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Igal Alkon <igal@alkontek.com>"]
 edition = "2024"
 description = "A real-time simulation game about building a colony on an exo-planet for terminal lovers."
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "Zlib"
 
 [dependencies]
 crossterm = { version = "0.29.0", optional = true }

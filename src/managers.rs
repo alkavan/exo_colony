@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2021-2026 Igal Alkon
+// SPDX-License-Identifier: Zlib
+
 use std::collections::hash_map::{Iter, IterMut};
 use std::collections::HashMap;
 use std::ops::{AddAssign, SubAssign};
