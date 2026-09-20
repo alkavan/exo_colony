@@ -27,12 +27,12 @@ impl EnergyManager {
         let discharged = 0;
         let deficit = 0;
 
-        return EnergyManager {
+        EnergyManager {
             output,
             stored,
             discharged,
             deficit,
-        };
+        }
     }
 
     pub fn output(&self) -> u64 {
@@ -66,8 +66,8 @@ impl EnergyManager {
         self.output() >= amount || self.combined() >= amount
     }
 
-    pub fn collect(&mut self, objects: Iter<Position, MapObject>) {
-        let filtered = objects.filter(|(_, o)| o.structure.is_some());
+    pub fn collect(&mut self, objects: IterMut<Position, MapObject>) {
+        let filtered = objects.filter(|(_, o)| o.is_operational());
         for (_, object) in filtered {
             let structure = object.structure.as_ref().unwrap();
 
@@ -75,9 +75,13 @@ impl EnergyManager {
                 Structure::Base { structure } => {
                     self.output.add_assign(structure.blueprint().energy_out());
                     self.stored.add_assign(structure.blueprint().stored());
+                    if structure.blueprint().energy_out() > 0 {
+                        object.active = true;
+                    }
                 }
                 Structure::PowerPlant { structure } => {
                     self.output.add_assign(structure.blueprint().energy_out());
+                    object.active = true;
                 }
                 _ => {}
             }
@@ -96,7 +100,7 @@ impl EnergyManager {
         }
 
         self.output.sub_assign(amount);
-        return amount;
+        amount
     }
 
     pub fn withdraw_stored(&mut self, amount: u64) -> u64 {
@@ -113,7 +117,7 @@ impl EnergyManager {
 
         self.stored.sub_assign(amount);
         self.discharged.add_assign(amount);
-        return amount;
+        amount
     }
 
     pub fn withdraw_discharge(&mut self, amount: u64) -> u64 {
@@ -128,7 +132,7 @@ impl EnergyManager {
         }
 
         self.discharged.sub_assign(amount);
-        return amount;
+        amount
     }
 
     pub fn add_deficit(&mut self, amount: u64) {
@@ -153,11 +157,11 @@ impl EnergyManager {
 
         // when we don't have requested energy
         self.add_deficit(available);
-        return available;
+        available
     }
 
     pub fn charge(&mut self, objects: IterMut<Position, MapObject>) {
-        let filtered = objects.filter(|(_, o)| o.structure.is_some());
+        let filtered = objects.filter(|(_, o)| o.is_operational());
         for (_, object) in filtered {
             let structure = object.structure.as_mut().unwrap();
 
@@ -183,7 +187,7 @@ impl EnergyManager {
     }
 
     pub fn discharge(&mut self, objects: IterMut<Position, MapObject>) {
-        let filtered = objects.filter(|(_, o)| o.structure.is_some());
+        let filtered = objects.filter(|(_, o)| o.is_operational());
 
         for (_, object) in filtered {
             let structure = object.structure.as_mut().unwrap();
@@ -250,37 +254,37 @@ impl ResourceManager {
             commodities_deficit.insert(commodity_type, 0);
         }
 
-        return ResourceManager {
+        ResourceManager {
             resources,
             resources_deficit,
             manufactured,
             manufactured_deficit,
             commodities,
             commodities_deficit,
-        };
+        }
     }
 
     pub fn resource_types(&self) -> Vec<Resource> {
-        return Vec::from_iter(self.resources.keys().cloned());
+        Vec::from_iter(self.resources.keys().cloned())
     }
 
     pub fn resources(&self) -> Iter<'_, Resource, u64> {
-        return self.resources.iter();
+        self.resources.iter()
     }
 
     pub fn resources_mut(&mut self) -> IterMut<'_, Resource, u64> {
-        return self.resources.iter_mut();
+        self.resources.iter_mut()
     }
 
     pub fn has_resource(&self, resource_type: &Resource, amount: u64) -> bool {
         let available = self.resources.get(resource_type).unwrap();
-        return *available > amount;
+        *available > amount
     }
 
     pub fn deposit_resource(&mut self, resource_type: &Resource, amount: u64) -> u64 {
         let stored = self.resources.get_mut(&resource_type).unwrap();
         stored.add_assign(amount);
-        return stored.clone();
+        stored.clone()
     }
 
     pub fn withdraw_resource(&mut self, resource_type: &Resource, amount: u64) -> u64 {
@@ -293,7 +297,7 @@ impl ResourceManager {
         }
 
         stored.sub_assign(amount);
-        return amount;
+        amount
     }
 
     fn add_resource_deficit(&mut self, resource_type: &Resource, amount: u64) {
@@ -304,30 +308,30 @@ impl ResourceManager {
     }
 
     pub fn get_resource_deficit(&self, resource_type: &Resource) -> u64 {
-        return self.resources_deficit.get(resource_type).unwrap().clone();
+        self.resources_deficit.get(resource_type).unwrap().clone()
     }
 
     pub fn manufactured_types(&self) -> Vec<Manufactured> {
-        return Vec::from_iter(self.manufactured.keys().cloned());
+        Vec::from_iter(self.manufactured.keys().cloned())
     }
 
     pub fn manufactured(&self) -> Iter<'_, Manufactured, u64> {
-        return self.manufactured.iter();
+        self.manufactured.iter()
     }
 
     pub fn manufactured_mut(&mut self) -> IterMut<'_, Manufactured, u64> {
-        return self.manufactured.iter_mut();
+        self.manufactured.iter_mut()
     }
 
     pub fn has_manufactured(&self, manufactured_type: &Manufactured, amount: u64) -> bool {
         let available = self.manufactured.get(manufactured_type).unwrap();
-        return *available > amount;
+        *available > amount
     }
 
     pub fn deposit_manufactured(&mut self, manufactured_type: &Manufactured, amount: u64) -> u64 {
         let stored = self.manufactured.get_mut(&manufactured_type).unwrap();
         stored.add_assign(amount);
-        return stored.clone();
+        stored.clone()
     }
 
     pub fn withdraw_manufactured(&mut self, manufactured_type: &Manufactured, amount: u64) -> u64 {
@@ -340,7 +344,7 @@ impl ResourceManager {
         }
 
         stored.sub_assign(amount);
-        return amount;
+        amount
     }
 
     fn add_manufactured_deficit(&mut self, manufactured_type: &Manufactured, amount: u64) {
@@ -351,29 +355,29 @@ impl ResourceManager {
     }
 
     pub fn get_manufactured_deficit(&self, manufactured_type: &Manufactured) -> u64 {
-        return self
+        self
             .manufactured_deficit
             .get(manufactured_type)
             .unwrap()
-            .clone();
+            .clone()
     }
 
     pub fn commodity_types(&self) -> Vec<Commodity> {
-        return Vec::from_iter(self.commodities.keys().cloned());
+        Vec::from_iter(self.commodities.keys().cloned())
     }
 
     pub fn commodities(&self) -> Iter<'_, Commodity, u64> {
-        return self.commodities.iter();
+        self.commodities.iter()
     }
 
     pub fn commodities_mut(&mut self) -> IterMut<'_, Commodity, u64> {
-        return self.commodities.iter_mut();
+        self.commodities.iter_mut()
     }
 
     pub fn deposit_commodity(&mut self, commodity_type: &Commodity, value: u64) -> u64 {
         let stored = self.commodities.get_mut(&commodity_type).unwrap();
         stored.add_assign(value);
-        return stored.clone();
+        stored.clone()
     }
 
     pub fn withdraw_commodity(&mut self, commodity_type: &Commodity, amount: u64) -> u64 {
@@ -386,7 +390,7 @@ impl ResourceManager {
         }
 
         stored.sub_assign(amount);
-        return amount;
+        amount
     }
 
     fn add_commodity_deficit(&mut self, commodity_type: &Commodity, amount: u64) {
@@ -397,7 +401,7 @@ impl ResourceManager {
     }
 
     pub fn get_commodity_deficit(&self, resource_type: &Commodity) -> u64 {
-        return self.commodities_deficit.get(resource_type).unwrap().clone();
+        self.commodities_deficit.get(resource_type).unwrap().clone()
     }
 
     fn zero_deficit(&mut self) {
@@ -421,7 +425,7 @@ impl ResourceManager {
     ) {
         self.zero_deficit();
 
-        let filtered = objects.filter(|(_, o)| o.structure.is_some());
+        let filtered = objects.filter(|(_, o)| o.is_operational());
 
         for (_, object) in filtered {
             // let time_factor: f64 = update_tick.delta() as f64 / 2000.0;
@@ -442,8 +446,9 @@ impl ResourceManager {
                             manufactured,
                             structure.blueprint().manufactured_out(),
                         );
+                        object.active = true;
                     } else {
-                        // resource not mined due to missing energy.
+                        // resource isn't mined due to missing energy.
                         energy_manager.add_deficit(energy_required);
                         self.add_resource_deficit(resource, structure.blueprint().resource_out());
                         self.add_manufactured_deficit(
@@ -482,6 +487,7 @@ impl ResourceManager {
                                     component.manufactured_out[manufactured],
                                 );
                             }
+                            object.active = true;
                         } else {
                             for manufactured in structure.resources() {
                                 // if we don't have required resource to produce commodity we add to deficit
@@ -514,6 +520,7 @@ impl ResourceManager {
                                 self.withdraw_resource(required_resource, required_amount.clone());
                             }
                             self.deposit_commodity(structure.commodity(), component.commodity_out);
+                            object.active = true;
                         } else {
                             // if we don't have required resource to produce commodity we add to deficit
                             self.add_commodity_deficit(
@@ -531,6 +538,9 @@ impl ResourceManager {
                                 .resource_add(resource, amount.clone());
 
                             amount.sub_assign(amount_stored);
+                            if amount_stored > 0 {
+                                object.active = true;
+                            }
                         }
                     }
                 }

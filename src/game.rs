@@ -18,6 +18,12 @@ use std::iter::FromIterator;
 
 type WorldCache = Vec<Vec<MapTile>>;
 
+/// Update ticks a newly placed structure spends under construction.
+pub const CONSTRUCTION_TICKS: u8 = 8;
+
+pub const WORLD_WIDTH: u16 = 256;
+pub const WORLD_HEIGHT: u16 = 256;
+
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Position {
     pub x: i16,
@@ -26,7 +32,7 @@ pub struct Position {
 
 impl Position {
     pub fn new(x: i16, y: i16) -> Position {
-        return Position { x, y };
+        Position { x, y }
     }
 
     pub fn x(&mut self, x: i16) {
@@ -128,11 +134,11 @@ pub struct ResourceDeposit {
 
 impl ResourceDeposit {
     pub fn new(resource: Resource, amount: u64) -> ResourceDeposit {
-        return ResourceDeposit {
+        ResourceDeposit {
             resource,
             amount,
             available: amount,
-        };
+        }
     }
 }
 
@@ -160,6 +166,38 @@ pub struct MapTile {
 pub struct MapObject {
     pub structure: Option<Structure>,
     pub deposit: Option<ResourceDeposit>,
+    /// Remaining construction ticks. Zero means the structure is operational.
+    pub construction_left: u8,
+    /// True when the structure produced or supplied energy on the last update.
+    pub active: bool,
+}
+
+impl MapObject {
+    pub fn empty() -> MapObject {
+        MapObject {
+            structure: None,
+            deposit: None,
+            construction_left: 0,
+            active: false,
+        }
+    }
+
+    pub fn with_deposit(deposit: ResourceDeposit) -> MapObject {
+        MapObject {
+            structure: None,
+            deposit: Some(deposit),
+            construction_left: 0,
+            active: false,
+        }
+    }
+
+    pub fn is_constructing(&self) -> bool {
+        self.structure.is_some() && self.construction_left > 0
+    }
+
+    pub fn is_operational(&self) -> bool {
+        self.structure.is_some() && self.construction_left == 0
+    }
 }
 
 pub struct ObjectManager {
@@ -193,11 +231,11 @@ impl ObjectManager {
     }
 
     pub fn list(&self) -> Iter<'_, Position, MapObject> {
-        return self.objects.iter();
+        self.objects.iter()
     }
 
     pub fn list_mut(&mut self) -> IterMut<'_, Position, MapObject> {
-        return self.objects.iter_mut();
+        self.objects.iter_mut()
     }
 }
 
@@ -211,27 +249,29 @@ impl TileFactory {
             tile = tile.when(constraint);
         }
 
-        return tile;
+        tile
     }
 }
 
 pub struct GameMap {
     width: u16,
     height: u16,
+    seed: String,
     world: World<MapTile>,
     cache: WorldCache,
 }
 
 impl GameMap {
-    pub fn new(width: u16, height: u16) -> GameMap {
+    pub fn new(width: u16, height: u16, seed: &str) -> GameMap {
         let noise = PerlinNoise::new();
 
         let nm1 = NoiseMap::new(noise)
-            .set_seed(Seed::of("FooMoo!"))
-            .set_step(Step::of(0.005, 0.005));
+            .set_seed(Seed::of(seed))
+            .set_step(Step::of(0.008, 0.008));
 
+        let detail_seed = format!("{}:hi", seed);
         let nm2 = NoiseMap::new(noise)
-            .set_seed(Seed::of("!GooToo"))
+            .set_seed(Seed::of(detail_seed.as_str()))
             .set_step(Step::of(0.05, 0.05));
 
         let nm = Box::new(nm1 + (nm2 * 4));
@@ -314,32 +354,37 @@ impl GameMap {
 
         let cache = world.generate(0, 0).unwrap();
 
-        return GameMap {
+        GameMap {
             width,
             height,
+            seed: seed.to_string(),
             world,
             cache,
-        };
+        }
+    }
+
+    pub fn seed(&self) -> &str {
+        &self.seed
     }
 
     pub fn world(&self) -> &World<MapTile> {
-        return &self.world;
+        &self.world
     }
 
     pub fn cache(&self) -> &WorldCache {
-        return &self.cache;
+        &self.cache
     }
 
     pub fn cache_copy(&self) -> WorldCache {
-        return WorldCache::from_iter(self.cache.iter().cloned());
+        WorldCache::from_iter(self.cache.iter().cloned())
     }
 
     pub fn width(&self) -> u16 {
-        return self.width;
+        self.width
     }
 
     pub fn height(&self) -> u16 {
-        return self.height;
+        self.height
     }
 }
 
@@ -347,42 +392,186 @@ pub struct MapController {
     map: GameMap,
     objects: ObjectManager,
     position: Position,
+    camera: Position,
+    follow: bool,
+    home: Option<Position>,
+    view_width: u16,
+    view_height: u16,
     locations: HashMap<Position, StructureGroup>,
 }
 
 impl MapController {
-    pub fn new(size: Size) -> MapController {
-        let position = Position::new(0, 0);
+    pub fn new(size: Size, seed: &str) -> MapController {
+        let position = Position::new((size.w / 2) as i16, (size.h / 2) as i16);
         let (w, h) = (size.w as u16, size.h as u16);
 
-        let map = GameMap::new(w, h);
+        let map = GameMap::new(w, h, seed);
 
         let objects = ObjectManager::new();
 
         let locations = HashMap::new();
 
-        return MapController {
+        let mut controller = MapController {
             map,
             objects,
-            position,
+            position: position.clone(),
+            camera: Position::new(0, 0),
+            follow: true,
+            home: None,
+            view_width: 1,
+            view_height: 1,
             locations,
         };
+        controller.center_camera_on_cursor();
+        controller
+    }
+
+    pub fn seed(&self) -> &str {
+        self.map.seed()
+    }
+
+    pub fn camera(&self) -> Position {
+        self.camera.clone()
+    }
+
+    pub fn follow(&self) -> bool {
+        self.follow
+    }
+
+    pub fn home(&self) -> Option<Position> {
+        self.home.clone()
+    }
+
+    pub fn view_size(&self) -> (u16, u16) {
+        (self.view_width, self.view_height)
+    }
+
+    pub fn set_viewport(&mut self, width: u16, height: u16) {
+        self.view_width = width.max(1);
+        self.view_height = height.max(1);
+        if self.follow {
+            self.center_camera_on_cursor();
+        } else {
+            self.clamp_camera();
+        }
+    }
+
+    pub fn toggle_follow(&mut self) {
+        self.follow = !self.follow;
+        if self.follow {
+            self.center_camera_on_cursor();
+        }
+    }
+
+    pub fn pin_home(&mut self) {
+        self.home = Some(self.position.clone());
+    }
+
+    pub fn go_home(&mut self) -> bool {
+        if let Some(home) = self.home.clone() {
+            self.position = home;
+            self.center_camera_on_cursor();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn center_camera_on_cursor(&mut self) {
+        let vw = self.view_width.max(1) as i16;
+        let vh = self.view_height.max(1) as i16;
+        self.camera.x = self.position.x - vw / 2;
+        self.camera.y = self.position.y - vh / 2;
+        self.clamp_camera();
+    }
+
+    fn clamp_camera(&mut self) {
+        let max_x = self.map.width().saturating_sub(self.view_width.min(self.map.width())) as i16;
+        let max_y = self
+            .map
+            .height()
+            .saturating_sub(self.view_height.min(self.map.height())) as i16;
+        if self.camera.x < 0 {
+            self.camera.x = 0;
+        }
+        if self.camera.y < 0 {
+            self.camera.y = 0;
+        }
+        if self.camera.x > max_x {
+            self.camera.x = max_x;
+        }
+        if self.camera.y > max_y {
+            self.camera.y = max_y;
+        }
+    }
+
+    fn after_cursor_move(&mut self) {
+        if self.follow {
+            self.center_camera_on_cursor();
+        }
+    }
+
+    pub fn pan_left(&mut self) {
+        self.follow = false;
+        if self.camera.x > 0 {
+            self.camera.x -= 1;
+        }
+    }
+
+    pub fn pan_right(&mut self) {
+        self.follow = false;
+        let max_x = self.map.width().saturating_sub(self.view_width.min(self.map.width())) as i16;
+        if self.camera.x < max_x {
+            self.camera.x += 1;
+        }
+    }
+
+    pub fn pan_up(&mut self) {
+        self.follow = false;
+        if self.camera.y > 0 {
+            self.camera.y -= 1;
+        }
+    }
+
+    pub fn pan_down(&mut self) {
+        self.follow = false;
+        let max_y = self
+            .map
+            .height()
+            .saturating_sub(self.view_height.min(self.map.height())) as i16;
+        if self.camera.y < max_y {
+            self.camera.y += 1;
+        }
+    }
+
+    pub fn clear_activity(&mut self) {
+        for (_, object) in self.objects.list_mut() {
+            object.active = false;
+        }
+    }
+
+    pub fn tick_construction(&mut self) {
+        for (_, object) in self.objects.list_mut() {
+            if object.structure.is_some() && object.construction_left > 0 {
+                object.construction_left -= 1;
+            }
+        }
     }
 
     pub fn map(&self) -> &GameMap {
-        return &self.map;
+        &self.map
     }
 
     pub fn locations(&self) -> &HashMap<Position, StructureGroup> {
-        return &self.locations;
+        &self.locations
     }
 
     pub fn objects(&self) -> &ObjectManager {
-        return &self.objects;
+        &self.objects
     }
 
     pub fn objects_mut(&mut self) -> &mut ObjectManager {
-        return &mut self.objects;
+        &mut self.objects
     }
 
     pub fn add_object(&mut self, position: Position, object: MapObject) -> Option<MapObject> {
@@ -394,42 +583,43 @@ impl MapController {
     }
 
     pub fn object(&self) -> Option<&MapObject> {
-        return self.objects.get(&self.position);
+        self.objects.get(&self.position)
     }
 
     pub fn object_at(&self, position: &Position) -> Option<&MapObject> {
-        return self.objects.get(position);
+        self.objects.get(position)
     }
 
     pub fn position(&self) -> Position {
-        return self.position.clone();
+        self.position.clone()
     }
 
     pub fn tile(&self) -> &MapTile {
         let x = self.position.x as usize;
         let y = self.position.y as usize;
 
-        return &self.map.cache[y][x];
+        &self.map.cache[y][x]
     }
 
     pub fn tile_at(&self, position: &Position) -> &MapTile {
         let x = position.x as usize;
         let y = position.y as usize;
 
-        return &self.map.cache[y][x];
+        &self.map.cache[y][x]
     }
 
     pub fn tile_at_mut(&mut self, position: Position) -> &mut MapTile {
         let x = position.x as usize;
         let y = position.y as usize;
 
-        return &mut self.map.cache[y][x];
+        &mut self.map.cache[y][x]
     }
 
     pub fn up(&mut self) {
         let y = self.position.y as u16;
         if y > 0 {
             self.position.y((y - 1) as i16);
+            self.after_cursor_move();
         }
     }
 
@@ -437,6 +627,7 @@ impl MapController {
         let y = self.position.y as u16;
         if y < self.map.height() - 1 {
             self.position.y((y + 1) as i16);
+            self.after_cursor_move();
         }
     }
 
@@ -444,6 +635,7 @@ impl MapController {
         let x = self.position.x as u16;
         if x < self.map.width() - 1 {
             self.position.x((x + 1) as i16);
+            self.after_cursor_move();
         }
     }
 
@@ -451,11 +643,13 @@ impl MapController {
         let x = self.position.x as u16;
         if x > 0 {
             self.position.x((x - 1) as i16);
+            self.after_cursor_move();
         }
     }
 
     pub fn add_structure(&mut self, structure: Structure) -> Option<MapObject> {
         let position = self.position();
+        let is_base = matches!(structure, Structure::Base { .. });
 
         if let Some(object) = self.objects.get_mut(&position) {
             if object.structure.is_some() {
@@ -463,22 +657,44 @@ impl MapController {
             }
 
             object.structure = Option::from(structure);
+            object.construction_left = CONSTRUCTION_TICKS;
+            object.active = false;
+            if is_base && self.home.is_none() {
+                self.home = Some(position);
+            }
             return None;
         }
 
         let object = MapObject {
             structure: Option::from(structure),
-            deposit: Option::None,
+            deposit: None,
+            construction_left: CONSTRUCTION_TICKS,
+            active: false,
         };
+
+        if is_base && self.home.is_none() {
+            self.home = Some(position.clone());
+        }
 
         self.add_object(position, object)
     }
 
-    pub fn destroy_structure(&mut self) {
+    pub fn destroy_structure(&mut self) -> bool {
         let position = self.position();
-        let mut object = self.remove_object(&position).unwrap();
-        object.structure = Option::None;
-        self.add_object(position, object);
+        match self.remove_object(&position) {
+            Some(mut object) => {
+                if object.structure.is_none() {
+                    self.add_object(position, object);
+                    return false;
+                }
+                object.structure = None;
+                object.construction_left = 0;
+                object.active = false;
+                self.add_object(position, object);
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn generate_deposits(&mut self) {
@@ -500,10 +716,7 @@ impl MapController {
                     // TODO: make amount random in range
                     let deposit = ResourceDeposit::new(resource, amount);
 
-                    let object = MapObject {
-                        structure: Option::None,
-                        deposit: Option::from(deposit),
-                    };
+                    let object = MapObject::with_deposit(deposit);
 
                     self.add_object(Position::new(x as i16, y as i16), object);
                 }

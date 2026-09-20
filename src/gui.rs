@@ -545,26 +545,37 @@ pub fn draw_stats_widget_right(storage: &ResourceManager) -> List<'static> {
         .style(Style::default().fg(Color::White))
 }
 
-pub fn draw_console_widget(buffer: &String) -> Paragraph<'_> {
-    let block = build_container_block("Console".to_string());
+pub fn draw_console_widget(
+    text: &str,
+    title: String,
+    scroll_y: u16,
+) -> Paragraph<'_> {
+    let block = build_container_block(title);
 
-    let style = Style::default();
-
-    let mut log = String::new();
-    for l in buffer.lines().rev() {
-        log.push_str(format!("{}\n", l).as_str())
-    }
-
-    let paragraph = Paragraph::new(log)
+    Paragraph::new(text)
         .block(block)
-        .style(style)
-        .wrap(Wrap { trim: true });
-
-    paragraph
+        .style(Style::default())
+        .wrap(Wrap { trim: true })
+        .scroll((scroll_y, 0))
 }
 
-pub fn draw_map_block() -> Block<'static> {
-    build_container_block("Map".to_string()).border_type(BorderType::Thick)
+pub fn draw_map_block(title: String) -> Block<'static> {
+    build_container_block(title).border_type(BorderType::Thick)
+}
+
+pub fn format_map_title(
+    follow: bool,
+    camera: Position,
+    cursor: Position,
+    world_w: u16,
+    world_h: u16,
+    seed: &str,
+) -> String {
+    let mode = if follow { "FOLLOW" } else { "FREE" };
+    format!(
+        "Map [{}] cam({},{}) cur({},{}) {}x{} seed:{}",
+        mode, camera.x, camera.y, cursor.x, cursor.y, world_w, world_h, seed
+    )
 }
 
 pub fn draw_structure_menu_widget(menu: &Menu) -> List<'static> {
@@ -651,20 +662,35 @@ pub fn draw_info_widget(
     ];
 
     if tile.is_resource {
-        let deposit = object.unwrap().deposit.unwrap();
-        items.push(ListItem::new(format!(
-            "Deposit: {} ({}/{})",
-            deposit.resource, deposit.available, deposit.amount
-        )));
+        if let Some(object) = object {
+            if let Some(deposit) = object.deposit {
+                items.push(ListItem::new(format!(
+                    "Deposit: {} ({}/{})",
+                    deposit.resource, deposit.available, deposit.amount
+                )));
+            }
+        }
     }
 
     if object.is_some() {
-        let structure = object.unwrap().structure.as_ref();
+        let map_object = object.unwrap();
+        let structure = map_object.structure.as_ref();
 
         if structure.is_some() {
             let structure = structure.unwrap();
-            let structure_content = format!("[ {} ]", structure.to_string());
-            items.push(ListItem::new(structure_content));
+            let status = if map_object.construction_left > 0 {
+                format!(
+                    "[ {} ] building {}/{}",
+                    structure.to_string(),
+                    crate::game::CONSTRUCTION_TICKS - map_object.construction_left,
+                    crate::game::CONSTRUCTION_TICKS
+                )
+            } else if map_object.active {
+                format!("[ {} ] active", structure.to_string())
+            } else {
+                format!("[ {} ] idle", structure.to_string())
+            };
+            items.push(ListItem::new(status));
 
             match structure {
                 Structure::Base { structure } => {
@@ -725,75 +751,92 @@ fn get_structure_symbol(structure: &Structure) -> char {
 pub fn render_map(
     map: &GameMap,
     objects: &ObjectManager,
-    position: Position,
+    cursor: Position,
+    camera: Position,
+    view_width: u16,
+    view_height: u16,
 ) -> Vec<Spans<'static>> {
-    let y = position.y as usize;
-    let x = position.x as usize;
+    let cache = map.cache();
+    let world_h = map.height() as i16;
+    let world_w = map.width() as i16;
+    let view_w = view_width as i16;
+    let view_h = view_height as i16;
 
-    let map_render = map.cache();
+    let mut rows = Vec::with_capacity(view_height as usize);
 
-    let text = map_render
-        .iter()
-        .enumerate()
-        .map(|(i, row)| {
-            let spans: Vec<Span> = row
-                .iter()
-                .enumerate()
-                .map(|(j, tile)| {
-                    let selected = y == i && x == j;
+    for row_i in 0..view_h {
+        let world_y = camera.y + row_i;
+        let mut spans: Vec<Span> = Vec::with_capacity(view_width as usize);
 
-                    let mut style = get_flora_style(&tile.flora);
+        if world_y < 0 || world_y >= world_h {
+            for _ in 0..view_w {
+                spans.push(Span::raw(" "));
+            }
+            rows.push(Spans::from(spans));
+            continue;
+        }
 
-                    let block_symbol = if selected {
-                        BlockType::Selected
+        let tile_row = &cache[world_y as usize];
+
+        for col_i in 0..view_w {
+            let world_x = camera.x + col_i;
+            if world_x < 0 || world_x >= world_w {
+                spans.push(Span::raw(" "));
+                continue;
+            }
+
+            let tile = &tile_row[world_x as usize];
+            let selected = cursor.y == world_y && cursor.x == world_x;
+            let mut style = get_flora_style(&tile.flora);
+            let position = Position::new(world_x, world_y);
+            let object = objects.get(&position);
+
+            if let Some(object) = object {
+                if let Some(structure) = object.structure.as_ref() {
+                    let mut symbol = get_structure_symbol(structure);
+                    if object.construction_left > 0 {
+                        symbol = symbol.to_ascii_lowercase();
+                        style = style.fg(Color::DarkGray);
+                    } else if object.active {
+                        style = style.fg(Color::White);
                     } else {
-                        BlockType::Light
-                    };
-
-                    let position = Position::new(j as i16, i as i16);
-                    let object = objects.get(&position);
-
-                    if object.is_some() {
-                        if object.unwrap().structure.is_some() {
-                            let structure = object.unwrap().structure.as_ref();
-                            if structure.is_some() {
-                                let structure_symbol = get_structure_symbol(structure.unwrap());
-
-                                if selected {
-                                    style = style.fg(Color::Red);
-                                }
-
-                                return Span::styled(
-                                    char::from(structure_symbol).to_string(),
-                                    style,
-                                );
-                            }
-                        } else if object.unwrap().deposit.is_some() {
-                            if selected {
-                                style = style.fg(Color::Red);
-                            }
-
-                            return Span::styled(
-                                char::from(BlockType::Resource).to_string(),
-                                style,
-                            );
-                        }
+                        style = style.fg(Color::Black);
                     }
+                    if selected {
+                        style = style.fg(Color::Red);
+                    }
+                    spans.push(Span::styled(symbol.to_string(), style));
+                    continue;
+                } else if object.deposit.is_some() {
+                    if selected {
+                        style = style.fg(Color::Red);
+                    }
+                    spans.push(Span::styled(
+                        char::from(BlockType::Resource).to_string(),
+                        style,
+                    ));
+                    continue;
+                }
+            }
 
-                    return Span::styled(char::from(block_symbol).to_string(), style);
-                })
-                .collect();
-            return Spans::from(spans);
-        })
-        .collect();
+            let block_symbol = if selected {
+                BlockType::Selected
+            } else {
+                BlockType::Light
+            };
+            spans.push(Span::styled(char::from(block_symbol).to_string(), style));
+        }
 
-    text
+        rows.push(Spans::from(spans));
+    }
+
+    rows
 }
 
 pub fn draw_map_widget(text: &Vec<Spans<'static>>) -> Paragraph<'static> {
     Paragraph::new(text.clone())
         .block(Block::default().borders(Borders::NONE))
         .style(Style::default().bg(Color::Rgb(0, 0, 0)))
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: false })
 }

@@ -116,7 +116,7 @@ impl StructureBlueprint {
         let component = self.components.get(name);
 
         if component.is_some() {
-            return component.unwrap();
+            component.unwrap()
         } else {
             panic!("{} is missing in this structure", name)
         }
@@ -126,14 +126,14 @@ impl StructureBlueprint {
         let component = self.components.get_mut(name);
 
         if component.is_some() {
-            return component.unwrap();
+            component.unwrap()
         } else {
             panic!("{} is missing in this structure", name)
         }
     }
 
     pub fn has_component(&self, name: &ComponentName) -> bool {
-        return self.components.get(name).is_some();
+        self.components.get(name).is_some()
     }
 }
 
@@ -204,7 +204,7 @@ impl BatteryTrait for StructureBlueprint {
                 }
 
                 stored.add_assign(amount);
-                return amount;
+                amount
             }
             _ => 0,
         }
@@ -224,7 +224,7 @@ impl BatteryTrait for StructureBlueprint {
                 }
 
                 stored.sub_assign(amount);
-                return amount;
+                amount
             }
             _ => 0,
         }
@@ -292,7 +292,7 @@ impl ResourceStorageTrait for StructureBlueprint {
                 }
 
                 component.resource_add(group, free_capacity);
-                return free_capacity;
+                free_capacity
             }
             _ => 0,
         }
@@ -344,7 +344,7 @@ impl CommodityStorageTrait for StructureBlueprint {
                 }
 
                 component.commodity_add(group, free_capacity);
-                return free_capacity;
+                free_capacity
             }
             _ => 0,
         }
@@ -406,15 +406,15 @@ impl Base {
 
         let blueprint = StructureBlueprint { components };
 
-        return Base { blueprint };
+        Base { blueprint }
     }
 
     pub fn blueprint(&self) -> &StructureBlueprint {
-        return &self.blueprint;
+        &self.blueprint
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
-        return &mut self.blueprint;
+        &mut self.blueprint
     }
 }
 
@@ -443,15 +443,15 @@ impl PowerPlant {
 
         let blueprint = StructureBlueprint { components };
 
-        return PowerPlant { blueprint };
+        PowerPlant { blueprint }
     }
 
     pub fn blueprint(&self) -> &StructureBlueprint {
-        return &self.blueprint;
+        &self.blueprint
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
-        return &mut self.blueprint;
+        &mut self.blueprint
     }
 }
 
@@ -493,27 +493,27 @@ impl Mine {
 
         let blueprint = StructureBlueprint { components };
 
-        return Mine {
+        Mine {
             blueprint,
             resource,
             manufactured,
-        };
+        }
     }
 
     pub fn blueprint(&self) -> &StructureBlueprint {
-        return &self.blueprint;
+        &self.blueprint
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
-        return &mut self.blueprint;
+        &mut self.blueprint
     }
 
     pub fn resource(&self) -> &Resource {
-        return &self.resource;
+        &self.resource
     }
 
     pub fn manufactured(&self) -> &Manufactured {
-        return &self.manufactured;
+        &self.manufactured
     }
 }
 
@@ -552,15 +552,15 @@ impl Storage {
 
         let blueprint = StructureBlueprint { components };
 
-        return Storage { blueprint };
+        Storage { blueprint }
     }
 
     pub fn blueprint(&self) -> &StructureBlueprint {
-        return &self.blueprint;
+        &self.blueprint
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
-        return &mut self.blueprint;
+        &mut self.blueprint
     }
 }
 
@@ -609,7 +609,7 @@ impl ResourceRequireFactory {
             }
         }
 
-        return requires;
+        requires
     }
 }
 
@@ -649,7 +649,7 @@ impl CommodityRequireFactory {
             }
         }
 
-        return requires;
+        requires
     }
 }
 
@@ -691,14 +691,14 @@ impl Factory {
 
         let blueprint = StructureBlueprint { components };
 
-        return Factory {
+        Factory {
             blueprint,
             commodity,
-        };
+        }
     }
 
     pub fn blueprint(&self) -> &StructureBlueprint {
-        return &self.blueprint;
+        &self.blueprint
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
@@ -706,7 +706,7 @@ impl Factory {
     }
 
     pub fn commodity(&self) -> &Commodity {
-        return &self.commodity;
+        &self.commodity
     }
 }
 
@@ -761,14 +761,14 @@ impl Refinery {
 
         let blueprint = StructureBlueprint { components };
 
-        return Refinery {
+        Refinery {
             blueprint,
             resources,
-        };
+        }
     }
 
     pub fn blueprint(&self) -> &StructureBlueprint {
-        return &self.blueprint;
+        &self.blueprint
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
@@ -804,11 +804,12 @@ impl StructureFactory {
                 Option::from(structure)
             }
             StructureGroup::Mine => {
-                if object.is_none() {
-                    panic!("cannot build mine, map object missing!")
-                }
+                let deposit = object.and_then(|o| o.deposit);
+                let Some(deposit) = deposit else {
+                    return None;
+                };
 
-                let map_resource = object.unwrap().deposit.unwrap().resource.clone();
+                let map_resource = deposit.resource.clone();
 
                 let structure = Structure::Mine {
                     structure: Mine::new(map_resource),

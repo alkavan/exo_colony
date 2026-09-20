@@ -77,26 +77,26 @@ impl ResourceStorageComponent {
             capacity.insert(resource, 1000);
         }
 
-        return ResourceStorageComponent {
+        ResourceStorageComponent {
             capacity,
             resources,
-        };
+        }
     }
 
     pub fn capacity(&self, group: &Resource) -> u64 {
-        return self.capacity[&group];
+        self.capacity[&group]
     }
 
     pub fn capacity_free(&self, group: &Resource) -> u64 {
-        return self.capacity[&group] - self.resources[&group];
+        self.capacity[&group] - self.resources[&group]
     }
 
     pub fn resource(&self, group: &Resource) -> u64 {
-        return self.resources[&group];
+        self.resources[&group]
     }
 
     pub fn resource_mut(&mut self, group: &Resource) -> &mut u64 {
-        return self.resources.get_mut(&group).unwrap();
+        self.resources.get_mut(&group).unwrap()
     }
 
     pub fn resource_add(&mut self, group: &Resource, amount: u64) {
@@ -104,7 +104,7 @@ impl ResourceStorageComponent {
     }
 
     pub fn resources(&self) -> Vec<&Resource> {
-        return Vec::from_iter(self.resources.keys());
+        Vec::from_iter(self.resources.keys())
     }
 }
 
@@ -134,10 +134,10 @@ impl CommodityStorageComponent {
             capacity.insert(commodity, 1000);
         }
 
-        return CommodityStorageComponent {
+        CommodityStorageComponent {
             capacity,
             commodities,
-        };
+        }
     }
 
     pub fn capacity(&self, group: &Commodity) -> u64 {
@@ -145,15 +145,15 @@ impl CommodityStorageComponent {
     }
 
     pub fn capacity_free(&self, group: &Commodity) -> u64 {
-        return self.capacity[&group] - self.commodities[&group];
+        self.capacity[&group] - self.commodities[&group]
     }
 
     pub fn commodity(&self, group: &Commodity) -> u64 {
-        return self.commodities[&group];
+        self.commodities[&group]
     }
 
     pub fn commodity_mut(&mut self, group: &Commodity) -> &mut u64 {
-        return self.commodities.get_mut(&group).unwrap();
+        self.commodities.get_mut(&group).unwrap()
     }
 
     pub fn commodity_add(&mut self, group: &Commodity, amount: u64) {
@@ -161,7 +161,7 @@ impl CommodityStorageComponent {
     }
 
     pub fn commodities(&self) -> Vec<&Commodity> {
-        return Vec::from_iter(self.commodities.keys());
+        Vec::from_iter(self.commodities.keys())
     }
 }
 

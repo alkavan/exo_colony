@@ -22,7 +22,7 @@ use tui::widgets::Paragraph;
 
 use worldgen::world::Size;
 
-use crate::game::{Commodity, Manufactured, MapController, Resource};
+use crate::game::{Commodity, Manufactured, MapController, Resource, WORLD_HEIGHT, WORLD_WIDTH};
 use crate::gui::{
     FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect, RefineryResourceSelect,
 };
@@ -30,17 +30,34 @@ use crate::input::{poll_inputs, Input};
 use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{StructureFactory, StructureGroup};
 
-use crate::util::format_welcome_message;
-use crate::util::{EventBus, GameEvent, Tick};
+use crate::util::{
+    format_help_message, format_welcome_message, parse_args, random_seed, ConsoleLog, EventBus,
+    GameEvent, Tick,
+};
+
+fn print_usage() {
+    eprintln!("Exo Colony 0.3 — a terminal colony sim");
+    eprintln!("Usage: exocolony [--seed <string>]");
+    eprintln!("  --seed, -s    World generation seed (default: random 8-char)");
+    eprintln!("  --help, -h    Show this help");
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let (seed_arg, show_help) = parse_args(std::env::args());
+    if show_help {
+        print_usage();
+        return Ok(());
+    }
+    let seed = seed_arg.unwrap_or_else(random_seed);
+
     let mut terminal = crate::terminal::setup()?;
 
     let now = SystemTime::now();
     let events = EventBus::new();
 
-    let mut log_buffer = String::default();
-    log_buffer.push_str(&format_welcome_message());
+    let mut console = ConsoleLog::new();
+    console.push(format_welcome_message(&seed));
+    let mut console_view_height: u16 = 8;
 
     // For keeping game update interval
     let mut update_tick = Tick::new();
@@ -117,8 +134,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Commodity::FuelRod,
     ]);
 
-    // The game controller, work with the Map object.
-    let mut controller = MapController::new(Size::of(90, 40));
+    // The game controller works with the Map object.
+    let mut controller = MapController::new(Size::of(WORLD_WIDTH as i64, WORLD_HEIGHT as i64), &seed);
 
     // Default margin used when drawing interfaces.
     let margin_1 = Margin {
@@ -154,7 +171,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             frame.render_widget(stats_widget_left, colony_layout[0]);
             frame.render_widget(stats_widget_right, colony_layout[1]);
 
-            let console_widget = gui::draw_console_widget(&log_buffer);
+            console_view_height = left_layout[1].height.saturating_sub(2).max(1);
+            let console_text = console.text();
+            let console_widget = gui::draw_console_widget(
+                &console_text,
+                console.title(),
+                console.paragraph_scroll(console_view_height),
+            );
             frame.render_widget(console_widget, left_layout[1]);
 
             let build_menu = gui::draw_structure_menu_widget(&menu);
@@ -164,8 +187,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 StructureGroup::Base => {}
                 StructureGroup::Power => {}
                 StructureGroup::Mine => {
-                    // let resource_select_widget = gui::draw_mine_select_widget(&mine_select);
-                    // frame.render_widget(resource_select_widget, menu_layout[1]);
+                    let resource_select_widget = gui::draw_mine_select_widget(&mine_select);
+                    frame.render_widget(resource_select_widget, menu_layout[1]);
                 }
                 StructureGroup::Factory => {
                     let commodity_select_widget = gui::draw_factory_select_widget(&factory_select);
@@ -186,10 +209,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             );
             frame.render_widget(info_panel, right_layout[1]);
 
-            let map_block = gui::draw_map_block();
-            frame.render_widget(map_block, main_layout[1]);
-
             let map_viewport = main_layout[1].inner(&margin_1);
+            controller.set_viewport(map_viewport.width, map_viewport.height);
+
+            let map_title = gui::format_map_title(
+                controller.follow(),
+                controller.camera(),
+                controller.position(),
+                controller.map().width(),
+                controller.map().height(),
+                controller.seed(),
+            );
+            let map_block = gui::draw_map_block(map_title);
+            frame.render_widget(map_block, main_layout[1]);
 
             // If the widget was drawn by the draw event, render it, otherwise do not.
             if map_widget.is_some() {
@@ -202,8 +234,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             // Map will not be drawn every loop iteration.
             GameEvent::Update => {
                 energy_manager.zero();
+                controller.clear_activity();
+                controller.tick_construction();
 
-                energy_manager.collect(controller.objects_mut().list());
+                energy_manager.collect(controller.objects_mut().list_mut());
 
                 let objects = controller.objects_mut().list_mut();
                 resource_manager.collect(objects, &mut energy_manager);
@@ -221,10 +255,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 update_tick.update(&elapsed);
             }
             GameEvent::Draw => {
+                let (view_w, view_h) = controller.view_size();
                 let map_text = gui::render_map(
                     controller.map(),
                     controller.objects(),
                     controller.position(),
+                    controller.camera(),
+                    view_w,
+                    view_h,
                 );
                 map_widget = Option::from(gui::draw_map_widget(&map_text));
                 draw_tick.update(&elapsed);
@@ -236,6 +274,37 @@ fn main() -> Result<(), Box<dyn Error>> {
                         Input::MoveRight => controller.right(),
                         Input::MoveUp => controller.up(),
                         Input::MoveDown => controller.down(),
+                        Input::CameraLeft => controller.pan_left(),
+                        Input::CameraRight => controller.pan_right(),
+                        Input::CameraUp => controller.pan_up(),
+                        Input::CameraDown => controller.pan_down(),
+                        Input::ToggleFollow => {
+                            controller.toggle_follow();
+                            let state = if controller.follow() { "on" } else { "off" };
+                            console.push_log(format!("Camera follow {}", state));
+                        }
+                        Input::PinHome => {
+                            controller.pin_home();
+                            console.push_log(format!(
+                                "Home pinned at {}",
+                                controller.position()
+                            ));
+                        }
+                        Input::GoHome => {
+                            if controller.go_home() {
+                                console.push_log(format!(
+                                    "Returned home at {}",
+                                    controller.position()
+                                ));
+                            } else {
+                                console.push_log(
+                                    "No home pinned. Press F3 to pin this tile.".to_string(),
+                                );
+                            }
+                        }
+                        Input::Help => {
+                            console.push(format_help_message());
+                        }
                         Input::Confirm => {
                             let structure_group = menu.selected();
                             let tile = controller.tile();
@@ -248,7 +317,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     structure,
                                     controller.position()
                                 );
-                                log_buffer.push_str(&util::get_log(message));
+                                console.push_log(message);
                             } else if StructureFactory::allowed(&structure_group, tile) {
                                 let structure = StructureFactory::new(
                                     &structure_group,
@@ -260,6 +329,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                                 if structure.is_some() {
                                     controller.add_structure(structure.unwrap());
+                                    console.push_log(format!(
+                                        "Construction started at {}",
+                                        controller.position()
+                                    ));
                                 }
                             }
                         }
@@ -293,19 +366,30 @@ fn main() -> Result<(), Box<dyn Error>> {
                         },
                         Input::MenuPrevious => menu.previous(),
                         Input::MenuNext => menu.next(),
+                        Input::LogPageUp => {
+                            console.page_up(console_view_height as usize);
+                        }
+                        Input::LogPageDown => {
+                            console.page_down(console_view_height as usize);
+                        }
                         Input::Destroy => {
-                            controller.destroy_structure();
+                            if controller.destroy_structure() {
+                                console.push_log(format!(
+                                    "Structure removed at {}",
+                                    controller.position()
+                                ));
+                            }
                         }
                         Input::Quit => {
                             terminal::restore(&mut terminal)?;
                             break 'game;
                         }
                         Input::Mouse(message) => {
-                            log_buffer.push_str(&util::get_log(message));
+                            console.push_log(message);
                         }
                         Input::Resize { width, height } => {
                             let message = format!("Screen Resize ({}x{})", width, height);
-                            log_buffer.push_str(&util::get_log(message));
+                            console.push_log(message);
                         }
                     }
                 }
