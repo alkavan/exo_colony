@@ -454,22 +454,13 @@ impl MapController {
     pub fn add_structure(&mut self, structure: Structure) -> Option<MapObject> {
         let position = self.position();
 
-        if self.objects.contains(&position) {
-            let mut object = self.remove_object(&position)?;
-
+        if let Some(object) = self.objects.get_mut(&position) {
             if object.structure.is_some() {
-                panic!(
-                    "trying add structure, but {} already exists at {}",
-                    &object.structure.unwrap(),
-                    &position
-                )
+                return None;
             }
 
-            // add deposit to object
             object.structure = Option::from(structure);
-
-            // add structure to existing object
-            return self.objects.set(position, object);
+            return None;
         }
 
         let object = MapObject {

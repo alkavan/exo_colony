@@ -384,21 +384,30 @@ impl MenuSelector<Commodity> for FactoryCommoditySelect {
 }
 
 pub fn build_main_layout(area: Rect) -> Vec<Rect> {
+    // Very conservative size checks
+    if area.width < 50 || area.height < 15 {
+        // For very small terminals, just use the full area for all sections
+        return vec![area, area, area];
+    }
+
+    // Use fixed widths instead of percentages to avoid overflow
+    let left_width = (area.width / 3).max(10);
+    let right_width = (area.width / 5).max(15);
+    let map_width = area.width.saturating_sub(left_width + right_width + 2); // 2 for margins
+
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .margin(1)
-        .constraints(
-            [
-                Constraint::Percentage(30),
-                Constraint::Percentage(50),
-                Constraint::Percentage(20),
-            ]
-                .as_ref(),
-        )
+        .constraints([
+            Constraint::Length(left_width),
+            Constraint::Length(map_width),
+            Constraint::Length(right_width),
+        ])
         .split(area);
 
     layout
 }
+
 
 pub fn build_left_layout(area: Rect) -> Vec<Rect> {
     let layout = Layout::default()

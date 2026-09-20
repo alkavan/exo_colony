@@ -5,21 +5,17 @@ extern crate worldgen;
 mod component;
 mod game;
 mod gui;
+mod input;
 mod managers;
 mod structures;
 mod util;
+pub(crate) mod terminal;
 
 use std::error::Error;
-use std::io;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
-use tui::backend::CrosstermBackend;
 use tui::layout::Margin;
 use tui::widgets::Paragraph;
-use tui::Terminal;
-
-use crossterm::event::{poll, read, Event, KeyCode};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use worldgen::world::Size;
 
@@ -27,6 +23,7 @@ use crate::game::{Commodity, Manufactured, MapController, Resource};
 use crate::gui::{
     FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect, RefineryResourceSelect,
 };
+use crate::input::{poll_inputs, Input};
 use crate::managers::{EnergyManager, ResourceManager};
 use crate::structures::{StructureFactory, StructureGroup};
 
@@ -34,12 +31,7 @@ use crate::util::format_welcome_message;
 use crate::util::{EventBus, GameEvent, Tick};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let stdout = io::stdout();
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    terminal.clear()?;
-    enable_raw_mode()?;
+    let mut terminal = crate::terminal::setup()?;
 
     let now = SystemTime::now();
     let events = EventBus::new();
@@ -135,7 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     controller.generate_deposits();
 
-    loop {
+    'game: loop {
         let elapsed = now.elapsed()?;
         let game_event = events.next()?;
 
@@ -235,122 +227,83 @@ fn main() -> Result<(), Box<dyn Error>> {
                 draw_tick.update(&elapsed);
             }
             GameEvent::Input => {
-                if poll(Duration::from_millis(0))? {
-                    // It's guaranteed that the `read()` won't block when the `poll()`
-                    // function returns `true`
-                    match read()? {
-                        Event::Key(event) => {
-                            // let log = util::get_log(format!("{:?}", event));
-                            // log_buffer.push_str(&log);
-                            match event.code {
-                                KeyCode::Backspace => {}
-                                KeyCode::Left => {
-                                    controller.left();
-                                }
-                                KeyCode::Enter => {
-                                    let structure_group = menu.selected();
-                                    let tile = controller.tile();
-                                    let object = controller.object();
+                for input in poll_inputs()? {
+                    match input {
+                        Input::MoveLeft => controller.left(),
+                        Input::MoveRight => controller.right(),
+                        Input::MoveUp => controller.up(),
+                        Input::MoveDown => controller.down(),
+                        Input::Confirm => {
+                            let structure_group = menu.selected();
+                            let tile = controller.tile();
+                            let object = controller.object();
+                            let existing = object.and_then(|o| o.structure.as_ref());
 
-                                    if StructureFactory::allowed(&structure_group, tile) {
-                                        let structure = StructureFactory::new(
-                                            &structure_group,
-                                            object,
-                                            &resource_manager,
-                                            &refinery_select,
-                                            &factory_select,
-                                        );
+                            if let Some(structure) = existing {
+                                let message = format!(
+                                    "Cannot build here: {} already exists at {}",
+                                    structure,
+                                    controller.position()
+                                );
+                                log_buffer.push_str(&util::get_log(message));
+                            } else if StructureFactory::allowed(&structure_group, tile) {
+                                let structure = StructureFactory::new(
+                                    &structure_group,
+                                    object,
+                                    &resource_manager,
+                                    &refinery_select,
+                                    &factory_select,
+                                );
 
-                                        if structure.is_some() {
-                                            controller.add_structure(structure.unwrap());
-                                        }
-                                    }
+                                if structure.is_some() {
+                                    controller.add_structure(structure.unwrap());
                                 }
-                                KeyCode::Right => {
-                                    controller.right();
-                                }
-                                KeyCode::Up => {
-                                    controller.up();
-                                }
-                                KeyCode::Down => {
-                                    controller.down();
-                                }
-                                KeyCode::Home => match menu.selected() {
-                                    StructureGroup::Base => {}
-                                    StructureGroup::Power => {}
-                                    StructureGroup::Mine => {
-                                        mine_select.previous();
-                                    }
-                                    StructureGroup::Refinery => {
-                                        refinery_select.previous();
-                                    }
-                                    StructureGroup::Factory => {
-                                        factory_select.previous();
-                                    }
-                                    StructureGroup::Storage => {}
-                                },
-                                KeyCode::End => match menu.selected() {
-                                    StructureGroup::Base => {}
-                                    StructureGroup::Power => {}
-                                    StructureGroup::Mine => {
-                                        mine_select.next();
-                                    }
-                                    StructureGroup::Refinery => {
-                                        refinery_select.next();
-                                    }
-                                    StructureGroup::Factory => {
-                                        factory_select.next();
-                                    }
-                                    StructureGroup::Storage => {}
-                                },
-                                KeyCode::PageUp => {
-                                    menu.previous();
-                                }
-                                KeyCode::PageDown => {
-                                    menu.next();
-                                }
-                                KeyCode::Tab => {}
-                                KeyCode::BackTab => {}
-                                KeyCode::Delete => {
-                                    controller.destroy_structure();
-                                }
-                                KeyCode::Insert => {}
-                                KeyCode::F(_) => {}
-                                KeyCode::Char(c) => match c {
-                                    'a' => {
-                                        controller.left();
-                                    }
-                                    'd' => {
-                                        controller.right();
-                                    }
-                                    'w' => {
-                                        controller.up();
-                                    }
-                                    's' => {
-                                        controller.down();
-                                    }
-                                    _ => {}
-                                },
-                                KeyCode::Null => {}
-                                KeyCode::Esc => {
-                                    // Quit
-                                    disable_raw_mode()?;
-                                    terminal.clear()?;
-                                    break;
-                                }
-                                _ => {}
                             }
                         }
-                        Event::Mouse(event) => {
-                            let log = util::get_log(format!("{:?}", event));
-                            log_buffer.push_str(&log);
+                        Input::SelectPrevious => match menu.selected() {
+                            StructureGroup::Base => {}
+                            StructureGroup::Power => {}
+                            StructureGroup::Mine => {
+                                mine_select.previous();
+                            }
+                            StructureGroup::Refinery => {
+                                refinery_select.previous();
+                            }
+                            StructureGroup::Factory => {
+                                factory_select.previous();
+                            }
+                            StructureGroup::Storage => {}
+                        },
+                        Input::SelectNext => match menu.selected() {
+                            StructureGroup::Base => {}
+                            StructureGroup::Power => {}
+                            StructureGroup::Mine => {
+                                mine_select.next();
+                            }
+                            StructureGroup::Refinery => {
+                                refinery_select.next();
+                            }
+                            StructureGroup::Factory => {
+                                factory_select.next();
+                            }
+                            StructureGroup::Storage => {}
+                        },
+                        Input::MenuPrevious => menu.previous(),
+                        Input::MenuNext => menu.next(),
+                        Input::Destroy => {
+                            controller.destroy_structure();
                         }
-                        Event::Resize(width, height) => {
+                        Input::Quit => {
+                            terminal::restore(&mut terminal)?;
+                            break 'game;
+                        }
+                        Input::Mouse(message) => {
+                            log_buffer.push_str(&util::get_log(message));
+                        }
+                        Input::Resize { width, height } => {
                             let message = format!("Screen Resize ({}x{})", width, height);
-                            let log = util::get_log(message);
-                            log_buffer.push_str(&log);
+                            log_buffer.push_str(&util::get_log(message));
                         }
-                        _ => {}
                     }
                 }
             }

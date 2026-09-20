@@ -97,7 +97,7 @@ impl EventBus {
 
 pub fn get_log(message: String) -> String {
     let time = Local::now().format("%H:%M:%S");
-    return format!("[{}] {}\n", time, message);
+    format!("[{}] {}\n", time, message)
 }
 
 pub fn format_welcome_message() -> String {
@@ -106,7 +106,7 @@ pub fn format_welcome_message() -> String {
     message.push_str(" Use the ENTER to place structure or action.");
     message.push_str(" Use PageUp/PageDown and Home/End to navigate menus.");
     message.push_str(" Use ESC to exit the game.");
-    return get_log(message);
+    get_log(message)
 }
 
 pub struct Tick {
@@ -119,7 +119,7 @@ impl Tick {
         let delta = 0;
         let duration = Duration::from_millis(0);
 
-        return Tick { delta, duration };
+        Tick { delta, duration }
     }
 
     pub fn update(&mut self, elapsed: &Duration) {
@@ -128,6 +128,6 @@ impl Tick {
     }
 
     pub fn delta(&self) -> u128 {
-        return self.delta;
+        self.delta
     }
 }
