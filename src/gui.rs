@@ -12,10 +12,14 @@ use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap};
 use crate::game::{
     Commodity, Flora, GameMap, Manufactured, MapObject, MapTile, ObjectManager, Position, Resource,
 };
+use std::collections::HashMap;
 
 use crate::managers::{EnergyManager, ResourceManager};
+use crate::component::{ComponentGroup, ComponentName};
 use crate::structures::{
-    BatteryTrait, EnergyTrait, ResourceStorageTrait, Structure, StructureBlueprint, StructureGroup,
+    BatteryTrait, CommodityStorageTrait, EnergyTrait, MineOutputTrait, ResourceStorageTrait,
+    Structure,
+    StructureBlueprint, StructureGroup,
 };
 use itertools::Itertools;
 
@@ -47,7 +51,6 @@ pub trait MenuSelector<T> {
     fn items(&self) -> Vec<ListItem<'static>>;
     fn next(&mut self);
     fn previous(&mut self);
-    fn style(&self, name: String, index: usize) -> Span<'_>;
 }
 
 fn menu_styles(selected_bg: Color) -> (Style, Style) {
@@ -170,16 +173,6 @@ impl MenuSelector<StructureGroup> for Menu {
     fn previous(&mut self) {
         self.selected = cycle_previous(self.selected, self.items.len());
     }
-
-    fn style(&self, name: String, index: usize) -> Span<'_> {
-        styled_menu_span(
-            name,
-            index,
-            self.selected,
-            self.selected_style,
-            self.default_style,
-        )
-    }
 }
 
 pub struct MineResourceSelect {
@@ -223,16 +216,6 @@ impl MenuSelector<Resource> for MineResourceSelect {
 
     fn previous(&mut self) {
         self.selected = cycle_previous(self.selected, self.items.len());
-    }
-
-    fn style(&self, name: String, index: usize) -> Span<'_> {
-        styled_menu_span(
-            name,
-            index,
-            self.selected,
-            self.selected_style,
-            self.default_style,
-        )
     }
 }
 
@@ -278,16 +261,6 @@ impl MenuSelector<Vec<Manufactured>> for RefineryResourceSelect {
     fn previous(&mut self) {
         self.selected = cycle_previous(self.selected, self.items.len());
     }
-
-    fn style(&self, name: String, index: usize) -> Span<'_> {
-        styled_menu_span(
-            name,
-            index,
-            self.selected,
-            self.selected_style,
-            self.default_style,
-        )
-    }
 }
 
 pub struct FactoryCommoditySelect {
@@ -331,16 +304,6 @@ impl MenuSelector<Commodity> for FactoryCommoditySelect {
 
     fn previous(&mut self) {
         self.selected = cycle_previous(self.selected, self.items.len());
-    }
-
-    fn style(&self, name: String, index: usize) -> Span<'_> {
-        styled_menu_span(
-            name,
-            index,
-            self.selected,
-            self.selected_style,
-            self.default_style,
-        )
     }
 }
 
@@ -436,16 +399,24 @@ fn labeled_row(label: &str, value: impl ToString, label_width: usize) -> ListIte
     ))
 }
 
-fn labeled_deficit_row(
+fn labeled_flow_row(
     label: &str,
     amount: impl ToString,
+    produced: u64,
+    consumed: u64,
     deficit: i64,
     label_width: usize,
 ) -> ListItem<'static> {
+    let rate = if consumed > 0 {
+        format!("+{}/-{}", produced, consumed)
+    } else {
+        format!("+{}", produced)
+    };
     ListItem::new(format!(
-        "{:>label_width$}: {:>9} ({})",
+        "{:>label_width$}: {:>7} {:>8} ({})",
         label,
         amount.to_string(),
+        rate,
         deficit.neg(),
         label_width = label_width
     ))
@@ -454,6 +425,7 @@ fn labeled_deficit_row(
 pub fn draw_stats_widget_left(
     storage: &ResourceManager,
     energy: &EnergyManager,
+    warehouse_resources: &HashMap<Resource, u64>,
     elapsed: Duration,
     update_delta: u128,
     draw_delta: u128,
@@ -470,24 +442,32 @@ pub fn draw_stats_widget_left(
     ];
 
     for (resource, amount) in storage.resources() {
-        items.push(labeled_deficit_row(
+        items.push(labeled_flow_row(
             &resource.to_string(),
-            amount,
+            storage.resource_total(resource, warehouse_resources),
+            storage.get_resource_produced(resource),
+            storage.get_resource_consumed(resource),
             storage.get_resource_deficit(resource) as i64,
             9,
         ));
+        let _ = amount;
     }
 
     draw_list_widget("Colony Information", items)
 }
 
-pub fn draw_stats_widget_right(storage: &ResourceManager) -> List<'static> {
+pub fn draw_stats_widget_right(
+    storage: &ResourceManager,
+    warehouse_commodities: &HashMap<Commodity, u64>,
+) -> List<'static> {
     let mut items = vec![section_header("Manufactured")];
 
     for (manufactured, amount) in storage.manufactured() {
-        items.push(labeled_deficit_row(
+        items.push(labeled_flow_row(
             &manufactured.to_string(),
             amount,
+            storage.get_manufactured_produced(manufactured),
+            0,
             storage.get_manufactured_deficit(manufactured) as i64,
             14,
         ));
@@ -495,12 +475,15 @@ pub fn draw_stats_widget_right(storage: &ResourceManager) -> List<'static> {
 
     items.push(section_header("Commodities"));
     for (commodity, amount) in storage.commodities() {
-        items.push(labeled_deficit_row(
+        items.push(labeled_flow_row(
             &commodity.to_string(),
-            amount,
+            storage.commodity_total(commodity, warehouse_commodities),
+            storage.get_commodity_produced(commodity),
+            0,
             storage.get_commodity_deficit(commodity) as i64,
             14,
         ));
+        let _ = amount;
     }
 
     draw_list_widget("Colony Information", items)
@@ -526,14 +509,20 @@ pub fn format_map_title(
     follow: bool,
     camera: Position,
     cursor: Position,
+    home: Option<Position>,
+    structure_count: usize,
     world_w: u16,
     world_h: u16,
     seed: &str,
 ) -> String {
     let mode = if follow { "FOLLOW" } else { "FREE" };
+    let home = match home {
+        Some(pos) => format!("({},{})", pos.x, pos.y),
+        None => "-".to_string(),
+    };
     format!(
-        "Map [{}] cam({},{}) cur({},{}) {}x{} seed:{}",
-        mode, camera.x, camera.y, cursor.x, cursor.y, world_w, world_h, seed
+        "Map [{}] cam({},{}) cur({},{}) home:{} n:{} {}x{} seed:{}",
+        mode, camera.x, camera.y, cursor.x, cursor.y, home, structure_count, world_w, world_h, seed
     )
 }
 
@@ -577,6 +566,17 @@ pub fn format_resource_capacity(
     )
 }
 
+pub fn format_commodity_capacity(
+    blueprint: &StructureBlueprint,
+    commodity_group: &Commodity,
+) -> String {
+    format_capacity_row(
+        &commodity_group.to_string(),
+        CommodityStorageTrait::commodity(blueprint, commodity_group),
+        CommodityStorageTrait::capacity(blueprint, commodity_group),
+    )
+}
+
 pub fn format_energy_io(blueprint: &StructureBlueprint) -> String {
     format_capacity_row("Energy I/O", blueprint.energy_in(), blueprint.energy_out())
 }
@@ -593,18 +593,33 @@ pub fn draw_info_widget(
     position: Position,
     tile: &MapTile,
     object: Option<&MapObject>,
+    home: Option<Position>,
 ) -> List<'static> {
     let mut items = vec![
         ListItem::new(format!("Position: ({}, {})", position.x, position.y)),
         ListItem::new(format!("Flora: {}", tile.flora.to_string())),
     ];
+    if home.as_ref() == Some(&position) {
+        items.push(ListItem::new("Home: pinned here"));
+    } else if let Some(home) = home {
+        items.push(ListItem::new(format!("Home: ({}, {})", home.x, home.y)));
+    } else {
+        items.push(ListItem::new("Home: not pinned"));
+    }
 
     if tile.is_resource {
         if let Some(object) = object {
             if let Some(deposit) = object.deposit {
                 items.push(ListItem::new(format!(
-                    "Deposit: {} ({}/{})",
-                    deposit.resource, deposit.available, deposit.amount
+                    "Deposit: {} ({}/{}){}",
+                    deposit.resource,
+                    deposit.available,
+                    deposit.amount,
+                    if deposit.is_exhausted() {
+                        " exhausted"
+                    } else {
+                        ""
+                    }
                 )));
             }
         }
@@ -616,7 +631,7 @@ pub fn draw_info_widget(
 
         if structure.is_some() {
             let structure = structure.unwrap();
-            let status = if map_object.construction_left > 0 {
+            let status = if map_object.is_constructing() {
                 format!(
                     "[ {} ] building {}/{}",
                     structure.to_string(),
@@ -645,14 +660,86 @@ pub fn draw_info_widget(
                 Structure::PowerPlant { .. } => {}
                 Structure::Mine { structure } => {
                     items.push(ListItem::new(format_mine_resource(structure.resource())));
+                    items.push(ListItem::new(format!(
+                        "Recipe: +{} {} +{} {}",
+                        structure.blueprint().resource_out(),
+                        structure.resource(),
+                        structure.blueprint().manufactured_out(),
+                        structure.manufactured()
+                    )));
+                    if let Some(deposit) = map_object.deposit {
+                        if deposit.is_exhausted() {
+                            items.push(ListItem::new("Vein empty — find another deposit"));
+                        }
+                    } else {
+                        items.push(ListItem::new("No deposit on this tile"));
+                    }
                 }
-                Structure::Refinery { .. } => {}
-                Structure::Factory { .. } => {}
+                Structure::Refinery { structure } => {
+                    if let ComponentGroup::RefineryOutput { component } = structure
+                        .blueprint()
+                        .get_component(&ComponentName::RefineryOutputComponent)
+                    {
+                        for manufactured in structure.resources() {
+                            items.push(ListItem::new(format!(
+                                "Makes: +{} {}",
+                                component.manufactured_out[manufactured], manufactured
+                            )));
+                        }
+                        for (_, required) in component.resources() {
+                            for (resource, amount) in required {
+                                items.push(ListItem::new(format!("Needs: {} {}", amount, resource)));
+                            }
+                        }
+                    }
+                }
+                Structure::Factory { structure } => {
+                    if let ComponentGroup::FactoryOutput { component } = structure
+                        .blueprint()
+                        .get_component(&ComponentName::FactoryOutputComponent)
+                    {
+                        items.push(ListItem::new(format!(
+                            "Makes: +{} {}",
+                            component.commodity_out,
+                            structure.commodity()
+                        )));
+                        for (resource, amount) in component.resources() {
+                            items.push(ListItem::new(format!("Needs: {} {}", amount, resource)));
+                        }
+                        for (item, amount) in component.manufactured() {
+                            items.push(ListItem::new(format!("Needs: {} {}", amount, item)));
+                        }
+                    }
+                }
                 Structure::Storage { structure } => {
                     for resource in structure.blueprint().resources() {
                         items.push(ListItem::new(format_resource_capacity(
                             structure.blueprint(),
                             resource,
+                        )));
+                    }
+                    for commodity in structure.blueprint().commodities() {
+                        items.push(ListItem::new(format_commodity_capacity(
+                            structure.blueprint(),
+                            commodity,
+                        )));
+                    }
+                    for commodity in structure.blueprint().commodities() {
+                        items.push(ListItem::new(format_commodity_capacity(
+                            structure.blueprint(),
+                            commodity,
+                        )));
+                    }
+                    for commodity in structure.blueprint().commodities() {
+                        items.push(ListItem::new(format_commodity_capacity(
+                            structure.blueprint(),
+                            commodity,
+                        )));
+                    }
+                    for commodity in structure.blueprint().commodities() {
+                        items.push(ListItem::new(format_commodity_capacity(
+                            structure.blueprint(),
+                            commodity,
                         )));
                     }
                 }
@@ -661,6 +748,17 @@ pub fn draw_info_widget(
     }
 
     draw_list_widget("Info", items)
+}
+
+fn get_resource_fg(resource: &Resource) -> Color {
+    match resource {
+        Resource::Iron => Color::Rgb(196, 92, 48),
+        Resource::Aluminum => Color::Rgb(196, 196, 208),
+        Resource::Carbon => Color::Rgb(48, 48, 48),
+        Resource::Silica => Color::Rgb(232, 220, 176),
+        Resource::Uranium => Color::Rgb(80, 176, 64),
+        Resource::Water => Color::Rgb(80, 180, 220),
+    }
 }
 
 fn get_flora_style(flora: &Flora) -> Style {
@@ -730,9 +828,11 @@ pub fn render_map(
             if let Some(object) = object {
                 if let Some(structure) = object.structure.as_ref() {
                     let mut symbol = get_structure_symbol(structure);
-                    if object.construction_left > 0 {
+                    if object.is_constructing() {
                         symbol = symbol.to_ascii_lowercase();
                         style = style.fg(Color::DarkGray);
+                    } else if let Structure::Mine { structure } = structure {
+                        style = style.fg(get_resource_fg(structure.resource()));
                     } else if object.active {
                         style = style.fg(Color::White);
                     } else {
@@ -743,9 +843,11 @@ pub fn render_map(
                     }
                     spans.push(Span::styled(symbol.to_string(), style));
                     continue;
-                } else if object.deposit.is_some() {
+                } else if let Some(deposit) = object.deposit {
                     if selected {
                         style = style.fg(Color::Red);
+                    } else {
+                        style = style.fg(get_resource_fg(&deposit.resource));
                     }
                     spans.push(Span::styled(
                         char::from(BlockType::Resource).to_string(),

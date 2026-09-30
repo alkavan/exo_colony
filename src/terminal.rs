@@ -66,4 +66,4 @@ mod backend {
 compile_error!("Enable a terminal backend: feature `crossterm` (default) or `termion`.");
 
 #[cfg(any(feature = "crossterm", feature = "termion"))]
-pub(crate) use backend::{restore, setup, Backend};
+pub(crate) use backend::{restore, setup};

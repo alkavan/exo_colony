@@ -19,9 +19,9 @@ pub enum GameEvent {
 
 pub struct EventBus {
     rx: mpsc::Receiver<GameEvent>,
-    update_handle: thread::JoinHandle<()>,
-    draw_handle: thread::JoinHandle<()>,
-    input_handle: thread::JoinHandle<()>,
+    _update_handle: thread::JoinHandle<()>,
+    _draw_handle: thread::JoinHandle<()>,
+    _input_handle: thread::JoinHandle<()>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -92,9 +92,9 @@ impl EventBus {
 
         EventBus {
             rx,
-            update_handle,
-            draw_handle,
-            input_handle,
+            _update_handle: update_handle,
+            _draw_handle: draw_handle,
+            _input_handle: input_handle,
         }
     }
 
@@ -150,10 +150,6 @@ impl ConsoleLog {
     }
 
     /// Distance from the tail. Zero means follow the latest line.
-    pub fn scroll(&self) -> usize {
-        self.scroll
-    }
-
     pub fn following(&self) -> bool {
         self.scroll == 0
     }
@@ -199,8 +195,12 @@ impl ConsoleLog {
 pub fn format_welcome_message(seed: &str) -> String {
     let mut message = String::from("Welcome to Exo Colony 0.3!");
     message.push_str(&format!(" World seed: {}.", seed));
+    message.push_str(" Landing crate on board. Builds spend stock.");
     message.push_str(" Arrows/WASD move the cursor. Alt+Arrows/WASD pan the camera.");
-    message.push_str(" F4 toggles camera-follow. F3 pins home, Home returns to it.");
+    message.push_str(" Alt+Shift+Arrows page-pan half a view.");
+    message.push_str(" F4 toggles camera-follow (slack: camera moves only at the view edge).");
+    message.push_str(" F3 pins home, Home returns to it.");
+    message.push_str(" n/N cycle structures, b/B cycle bases.");
     message.push_str(" ; ' cycle the build menu. - = (or , .) cycle variants.");
     message.push_str(" PageUp/PageDown scroll the console (pinned to latest at the bottom).");
     message.push_str(" Enter places a structure. Delete removes one. ? reprints help. Esc quits.");
@@ -209,7 +209,7 @@ pub fn format_welcome_message(seed: &str) -> String {
 
 pub fn format_help_message() -> String {
     get_log(
-        "Controls: cursor Arrows/WASD | camera Alt+Arrows | F4 follow | F3 pin home | Home go home | ;/' menu | -/= variant | PgUp/PgDn console | Enter build | Del destroy | Esc quit."
+        "Controls: cursor Arrows/WASD | camera Alt+Arrows | Alt+Shift+Arrows page-pan | F4 follow (edge slack) | F3 pin home | Home go home | n/N next/prev structure | b/B next/prev base | ;/' menu | -/= variant | PgUp/PgDn console | Enter build | Del destroy | Esc quit."
             .to_string(),
     )
 }

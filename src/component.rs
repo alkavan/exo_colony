@@ -55,6 +55,7 @@ pub struct FactoryOutputComponent {
     pub commodity_out: u64,
     pub energy_required: u64,
     pub resource_required: HashMap<Resource, u64>,
+    pub manufactured_required: HashMap<Manufactured, u64>,
 }
 
 pub struct ResourceStorageComponent {
@@ -103,6 +104,13 @@ impl ResourceStorageComponent {
         self.resources.get_mut(group).unwrap().add_assign(amount);
     }
 
+    pub fn resource_take(&mut self, group: &Resource, amount: u64) -> u64 {
+        let stored = self.resource_mut(group);
+        let take = (*stored).min(amount);
+        *stored -= take;
+        take
+    }
+
     pub fn resources(&self) -> Vec<&Resource> {
         Vec::from_iter(self.resources.keys())
     }
@@ -111,6 +119,10 @@ impl ResourceStorageComponent {
 impl FactoryOutputComponent {
     pub fn resources(&self) -> Iter<'_, Resource, u64> {
         self.resource_required.iter()
+    }
+
+    pub fn manufactured(&self) -> Iter<'_, Manufactured, u64> {
+        self.manufactured_required.iter()
     }
 }
 
@@ -158,6 +170,13 @@ impl CommodityStorageComponent {
 
     pub fn commodity_add(&mut self, group: &Commodity, amount: u64) {
         self.commodities.get_mut(group).unwrap().add_assign(amount);
+    }
+
+    pub fn commodity_take(&mut self, group: &Commodity, amount: u64) -> u64 {
+        let stored = self.commodity_mut(group);
+        let take = (*stored).min(amount);
+        *stored -= take;
+        take
     }
 
     pub fn commodities(&self) -> Vec<&Commodity> {

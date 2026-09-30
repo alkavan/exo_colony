@@ -27,7 +27,7 @@ use crate::gui::{
     FactoryCommoditySelect, Menu, MenuSelector, MineResourceSelect, RefineryResourceSelect,
 };
 use crate::input::{poll_inputs, Input};
-use crate::managers::{EnergyManager, ResourceManager};
+use crate::managers::{BuildCost, EnergyManager, ResourceManager};
 use crate::structures::{StructureFactory, StructureGroup};
 
 use crate::util::{
@@ -79,10 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let storage_manufactured = vec![
         Manufactured::Silicon,
-        Manufactured::Food,
         Manufactured::Steel,
-        Manufactured::BioPlastic,
-        Manufactured::Oxygen,
         Manufactured::Gravel,
         Manufactured::Hydrogen,
         Manufactured::FuelPellet,
@@ -98,6 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut resource_manager =
         ResourceManager::new(storage_resources, storage_manufactured, storage_commodities);
+    resource_manager.seed_landing_crate();
 
     let mut menu = Menu::new(vec![
         StructureGroup::Base,
@@ -119,10 +117,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut refinery_select = RefineryResourceSelect::new(vec![
         vec![Manufactured::Silicon],
-        vec![Manufactured::Food],
         vec![Manufactured::Steel],
-        vec![Manufactured::BioPlastic],
-        vec![Manufactured::Hydrogen, Manufactured::Oxygen],
+        vec![Manufactured::Hydrogen],
         vec![Manufactured::FuelPellet],
     ]);
 
@@ -158,15 +154,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             let menu_layout = gui::build_menu_layout(right_layout[0]);
             let colony_layout = gui::build_colony_layout(left_layout[0]);
 
+            let warehouse_resources =
+                ResourceManager::warehouse_resources(controller.objects().list());
+            let warehouse_commodities =
+                ResourceManager::warehouse_commodities(controller.objects().list());
+
             let stats_widget_left = gui::draw_stats_widget_left(
                 &resource_manager,
                 &energy_manager,
+                &warehouse_resources,
                 elapsed,
                 update_tick.delta(),
                 draw_tick.delta(),
             );
 
-            let stats_widget_right = gui::draw_stats_widget_right(&resource_manager);
+            let stats_widget_right =
+                gui::draw_stats_widget_right(&resource_manager, &warehouse_commodities);
 
             frame.render_widget(stats_widget_left, colony_layout[0]);
             frame.render_widget(stats_widget_right, colony_layout[1]);
@@ -202,10 +205,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 StructureGroup::Storage => {}
             }
 
+            let cursor = controller.position();
             let info_panel = gui::draw_info_widget(
-                controller.position(),
-                controller.tile(),
-                controller.object(),
+                cursor.clone(),
+                controller.tile_at(&cursor),
+                controller.object_at(&cursor),
+                controller.home(),
             );
             frame.render_widget(info_panel, right_layout[1]);
 
@@ -216,6 +221,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 controller.follow(),
                 controller.camera(),
                 controller.position(),
+                controller.home(),
+                controller.locations().len(),
                 controller.map().width(),
                 controller.map().height(),
                 controller.seed(),
@@ -240,7 +247,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 energy_manager.collect(controller.objects_mut().list_mut());
 
                 let objects = controller.objects_mut().list_mut();
-                resource_manager.collect(objects, &mut energy_manager);
+                let exhausted = resource_manager.collect(objects, &mut energy_manager);
+                for (position, resource) in exhausted {
+                    controller.tile_at_mut(position.clone()).is_resource = false;
+                    console.push_log(format!(
+                        "Mine {} deposit exhausted ({})",
+                        position, resource
+                    ));
+                }
 
                 // if we discharged energy from storage, discharge batteries.
                 if energy_manager.discharged() > 0 {
@@ -278,6 +292,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                         Input::CameraRight => controller.pan_right(),
                         Input::CameraUp => controller.pan_up(),
                         Input::CameraDown => controller.pan_down(),
+                        Input::CameraPageLeft => controller.page_left(),
+                        Input::CameraPageRight => controller.page_right(),
+                        Input::CameraPageUp => controller.page_up(),
+                        Input::CameraPageDown => controller.page_down(),
                         Input::ToggleFollow => {
                             controller.toggle_follow();
                             let state = if controller.follow() { "on" } else { "off" };
@@ -302,14 +320,49 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 );
                             }
                         }
+                        Input::NextStructure => match controller.cycle_structure(false, None) {
+                            Some((position, group)) => {
+                                console.push_log(format!("Next {}: {}", group, position));
+                            }
+                            None => console.push_log("No structures to cycle.".to_string()),
+                        },
+                        Input::PreviousStructure => {
+                            match controller.cycle_structure(true, None) {
+                                Some((position, group)) => {
+                                    console.push_log(format!("Prev {}: {}", group, position));
+                                }
+                                None => console.push_log("No structures to cycle.".to_string()),
+                            }
+                        }
+                        Input::NextBase => {
+                            match controller.cycle_structure(false, Some(StructureGroup::Base)) {
+                                Some((position, _)) => {
+                                    console.push_log(format!("Next Base {}", position));
+                                }
+                                None => console.push_log("No bases to cycle.".to_string()),
+                            }
+                        }
+                        Input::PreviousBase => {
+                            match controller.cycle_structure(true, Some(StructureGroup::Base)) {
+                                Some((position, _)) => {
+                                    console.push_log(format!("Prev Base {}", position));
+                                }
+                                None => console.push_log("No bases to cycle.".to_string()),
+                            }
+                        }
                         Input::Help => {
                             console.push(format_help_message());
                         }
                         Input::Confirm => {
                             let structure_group = menu.selected();
-                            let tile = controller.tile();
-                            let object = controller.object();
-                            let existing = object.and_then(|o| o.structure.as_ref());
+                            let tile_ok = StructureFactory::allowed(
+                                &structure_group,
+                                controller.tile(),
+                            );
+                            let existing = controller
+                                .object()
+                                .and_then(|o| o.structure.as_ref())
+                                .map(|s| s.to_string());
 
                             if let Some(structure) = existing {
                                 let message = format!(
@@ -318,20 +371,27 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     controller.position()
                                 );
                                 console.push_log(message);
-                            } else if StructureFactory::allowed(&structure_group, tile) {
-                                let structure = StructureFactory::new(
+                            } else if tile_ok {
+                                let cost = BuildCost::for_group(&structure_group);
+                                if let Err(missing) = resource_manager
+                                    .pay(&cost, controller.objects_mut().list_mut())
+                                {
+                                    console.push_log(format!(
+                                        "Cannot afford {}: {}",
+                                        structure_group, missing
+                                    ));
+                                } else if let Some(structure) = StructureFactory::new(
                                     &structure_group,
-                                    object,
+                                    controller.object(),
                                     &resource_manager,
                                     &refinery_select,
                                     &factory_select,
-                                );
-
-                                if structure.is_some() {
-                                    controller.add_structure(structure.unwrap());
+                                ) {
+                                    controller.add_structure(structure);
                                     console.push_log(format!(
-                                        "Construction started at {}",
-                                        controller.position()
+                                        "Construction started at {} (−{})",
+                                        controller.position(),
+                                        cost.describe()
                                     ));
                                 }
                             }

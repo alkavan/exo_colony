@@ -52,6 +52,7 @@ pub trait ResourceStorageTrait {
     fn capacity(&self, group: &Resource) -> u64;
     fn resource(&self, group: &Resource) -> u64;
     fn resource_add(&mut self, group: &Resource, amount: u64) -> u64;
+    fn resource_take(&mut self, group: &Resource, amount: u64) -> u64;
     fn resources(&self) -> Vec<&Resource>;
 }
 
@@ -59,6 +60,7 @@ pub trait CommodityStorageTrait {
     fn capacity(&self, group: &Commodity) -> u64;
     fn commodity(&self, group: &Commodity) -> u64;
     fn commodity_add(&mut self, group: &Commodity, amount: u64) -> u64;
+    fn commodity_take(&mut self, group: &Commodity, amount: u64) -> u64;
     fn commodities(&self) -> Vec<&Commodity>;
 }
 
@@ -86,6 +88,30 @@ impl Display for Structure {
     }
 }
 
+impl Structure {
+    pub fn blueprint(&self) -> &StructureBlueprint {
+        match self {
+            Structure::Base { structure } => structure.blueprint(),
+            Structure::PowerPlant { structure } => structure.blueprint(),
+            Structure::Mine { structure } => structure.blueprint(),
+            Structure::Refinery { structure } => structure.blueprint(),
+            Structure::Factory { structure } => structure.blueprint(),
+            Structure::Storage { structure } => structure.blueprint(),
+        }
+    }
+
+    pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
+        match self {
+            Structure::Base { structure } => structure.blueprint_mut(),
+            Structure::PowerPlant { structure } => structure.blueprint_mut(),
+            Structure::Mine { structure } => structure.blueprint_mut(),
+            Structure::Refinery { structure } => structure.blueprint_mut(),
+            Structure::Factory { structure } => structure.blueprint_mut(),
+            Structure::Storage { structure } => structure.blueprint_mut(),
+        }
+    }
+}
+
 pub trait StructureGroupTrait {
     fn group(&self) -> StructureGroup;
 }
@@ -108,10 +134,6 @@ pub struct StructureBlueprint {
 }
 
 impl StructureBlueprint {
-    pub fn add_component(&mut self, name: ComponentName, component: ComponentGroup) {
-        self.components.insert(name, component);
-    }
-
     pub fn get_component(&self, name: &ComponentName) -> &ComponentGroup {
         let component = self.components.get(name);
 
@@ -257,18 +279,14 @@ impl MineOutputTrait for StructureBlueprint {
 impl ResourceStorageTrait for StructureBlueprint {
     fn capacity(&self, group: &Resource) -> u64 {
         match self.get_component(&ComponentName::ResourceStorageComponent) {
-            ComponentGroup::ResourceStorage {
-                component: ResourceStorageComponent { capacity, .. },
-            } => capacity[&group],
+            ComponentGroup::ResourceStorage { component } => component.capacity(group),
             _ => 0,
         }
     }
 
     fn resource(&self, group: &Resource) -> u64 {
         match self.get_component(&ComponentName::ResourceStorageComponent) {
-            ComponentGroup::ResourceStorage {
-                component: ResourceStorageComponent { resources, .. },
-            } => resources[&group],
+            ComponentGroup::ResourceStorage { component } => component.resource(group),
             _ => 0,
         }
     }
@@ -298,6 +316,14 @@ impl ResourceStorageTrait for StructureBlueprint {
         }
     }
 
+    fn resource_take(&mut self, group: &Resource, amount: u64) -> u64 {
+        let component = self.get_component_mut(&ComponentName::ResourceStorageComponent);
+        match component {
+            ComponentGroup::ResourceStorage { component } => component.resource_take(group, amount),
+            _ => 0,
+        }
+    }
+
     fn resources(&self) -> Vec<&Resource> {
         match self.get_component(&ComponentName::ResourceStorageComponent) {
             ComponentGroup::ResourceStorage { component } => component.resources(),
@@ -309,18 +335,14 @@ impl ResourceStorageTrait for StructureBlueprint {
 impl CommodityStorageTrait for StructureBlueprint {
     fn capacity(&self, group: &Commodity) -> u64 {
         match self.get_component(&ComponentName::CommodityStorageComponent) {
-            ComponentGroup::CommodityStorage {
-                component: CommodityStorageComponent { capacity, .. },
-            } => capacity[&group],
+            ComponentGroup::CommodityStorage { component } => component.capacity(group),
             _ => 0,
         }
     }
 
     fn commodity(&self, group: &Commodity) -> u64 {
         match self.get_component(&ComponentName::CommodityStorageComponent) {
-            ComponentGroup::CommodityStorage {
-                component: CommodityStorageComponent { commodities, .. },
-            } => commodities[&group],
+            ComponentGroup::CommodityStorage { component } => component.commodity(group),
             _ => 0,
         }
     }
@@ -345,6 +367,16 @@ impl CommodityStorageTrait for StructureBlueprint {
 
                 component.commodity_add(group, free_capacity);
                 free_capacity
+            }
+            _ => 0,
+        }
+    }
+
+    fn commodity_take(&mut self, group: &Commodity, amount: u64) -> u64 {
+        let component = self.get_component_mut(&ComponentName::CommodityStorageComponent);
+        match component {
+            ComponentGroup::CommodityStorage { component } => {
+                component.commodity_take(group, amount)
             }
             _ => 0,
         }
@@ -433,7 +465,7 @@ impl PowerPlant {
     pub fn new() -> PowerPlant {
         let energy_component = ComponentGroup::Energy {
             component: EnergyComponent {
-                energy_out: 100,
+                energy_out: 120,
                 energy_in: 0,
             },
         };
@@ -473,7 +505,7 @@ impl Mine {
         let energy_component = ComponentGroup::Energy {
             component: EnergyComponent {
                 energy_out: 0,
-                energy_in: 25,
+                energy_in: 15,
             },
         };
 
@@ -569,14 +601,11 @@ pub struct ResourceRequireFactory {}
 impl ResourceRequireFactory {
     fn energy_for_manufactured(resource: &Manufactured) -> u64 {
         match resource {
-            Manufactured::Silicon => 60,
-            Manufactured::Food => 15,
-            Manufactured::Steel => 45,
-            Manufactured::BioPlastic => 70,
-            Manufactured::Oxygen => 30,
-            Manufactured::Gravel => 40,
-            Manufactured::Hydrogen => 35,
-            Manufactured::FuelPellet => 100,
+            Manufactured::Silicon => 30,
+            Manufactured::Steel => 25,
+            Manufactured::Gravel => 10,
+            Manufactured::Hydrogen => 20,
+            Manufactured::FuelPellet => 50,
         }
     }
 
@@ -585,27 +614,17 @@ impl ResourceRequireFactory {
 
         match resource {
             Manufactured::Silicon => {
-                requires.insert(Resource::Silica, 5);
-            }
-            Manufactured::Food => {
-                requires.insert(Resource::Water, 5);
+                requires.insert(Resource::Silica, 4);
             }
             Manufactured::Steel => {
                 requires.insert(Resource::Iron, 3);
             }
-            Manufactured::BioPlastic => {
-                requires.insert(Resource::Silica, 3);
-                requires.insert(Resource::Carbon, 7);
-            }
-            Manufactured::Oxygen => {
-                requires.insert(Resource::Water, 5);
-            }
             Manufactured::Gravel => {}
             Manufactured::Hydrogen => {
-                requires.insert(Resource::Water, 10);
+                requires.insert(Resource::Water, 6);
             }
             Manufactured::FuelPellet => {
-                requires.insert(Resource::Uranium, 3);
+                requires.insert(Resource::Uranium, 2);
             }
         }
 
@@ -618,11 +637,11 @@ pub struct CommodityRequireFactory {}
 impl CommodityRequireFactory {
     fn energy_for_commodity(commodity: &Commodity) -> u64 {
         match commodity {
-            Commodity::Concrete => 45,
+            Commodity::Concrete => 25,
             Commodity::Fuel => 20,
             Commodity::Semiconductor => 40,
-            Commodity::Glass => 120,
-            Commodity::FuelRod => 200,
+            Commodity::Glass => 35,
+            Commodity::FuelRod => 60,
         }
     }
 
@@ -631,21 +650,41 @@ impl CommodityRequireFactory {
 
         match commodity {
             Commodity::Concrete => {
-                requires.insert(Resource::Silica, 15);
+                requires.insert(Resource::Silica, 5);
             }
-            Commodity::Fuel => {
-                requires.insert(Resource::Water, 35);
-            }
+            Commodity::Fuel => {}
             Commodity::Semiconductor => {
-                requires.insert(Resource::Aluminum, 5);
-                requires.insert(Resource::Carbon, 10);
-                requires.insert(Resource::Silica, 25);
+                requires.insert(Resource::Aluminum, 3);
+                requires.insert(Resource::Carbon, 4);
             }
             Commodity::Glass => {
-                requires.insert(Resource::Silica, 50);
+                requires.insert(Resource::Silica, 6);
+            }
+            Commodity::FuelRod => {}
+        }
+
+        requires
+    }
+
+    fn manufactured_for_commodity(commodity: &Commodity) -> HashMap<Manufactured, u64> {
+        let mut requires = HashMap::new();
+
+        match commodity {
+            Commodity::Concrete => {
+                requires.insert(Manufactured::Gravel, 5);
+            }
+            Commodity::Fuel => {
+                requires.insert(Manufactured::Hydrogen, 2);
+            }
+            Commodity::Semiconductor => {
+                requires.insert(Manufactured::Silicon, 2);
+            }
+            Commodity::Glass => {
+                requires.insert(Manufactured::Silicon, 1);
             }
             Commodity::FuelRod => {
-                requires.insert(Resource::Uranium, 50);
+                requires.insert(Manufactured::FuelPellet, 1);
+                requires.insert(Manufactured::Steel, 1);
             }
         }
 
@@ -676,12 +715,15 @@ impl Factory {
 
         let energy_required = CommodityRequireFactory::energy_for_commodity(&commodity);
         let resource_required = CommodityRequireFactory::resources_for_commodity(&commodity);
+        let manufactured_required =
+            CommodityRequireFactory::manufactured_for_commodity(&commodity);
 
         let commodity_component = ComponentGroup::FactoryOutput {
             component: FactoryOutputComponent {
                 commodity_out: 1,
                 energy_required,
                 resource_required,
+                manufactured_required,
             },
         };
 
@@ -702,7 +744,7 @@ impl Factory {
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
-        return &mut self.blueprint;
+        &mut self.blueprint
     }
 
     pub fn commodity(&self) -> &Commodity {
@@ -772,7 +814,7 @@ impl Refinery {
     }
 
     pub fn blueprint_mut(&mut self) -> &mut StructureBlueprint {
-        return &mut self.blueprint;
+        &mut self.blueprint
     }
 
     pub fn resources(&self) -> Iter<'_, Manufactured> {
@@ -808,6 +850,9 @@ impl StructureFactory {
                 let Some(deposit) = deposit else {
                     return None;
                 };
+                if deposit.is_exhausted() {
+                    return None;
+                }
 
                 let map_resource = deposit.resource.clone();
 

@@ -11,7 +11,7 @@ use worldgen::world::tile::Constraint;
 use worldgen::world::tile::ConstraintType;
 use worldgen::world::{Size, Tile, World};
 
-use crate::structures::{Structure, StructureGroup};
+use crate::structures::{Structure, StructureGroup, StructureGroupTrait};
 use rand::prelude::SliceRandom;
 use rand::RngExt;
 use std::iter::FromIterator;
@@ -69,10 +69,7 @@ impl Display for Resource {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Manufactured {
     Silicon,
-    Food,
     Steel,
-    BioPlastic,
-    Oxygen,
     Gravel,
     Hydrogen,
     FuelPellet,
@@ -115,12 +112,12 @@ impl ResourceFactory {
 
     fn random_resource_amount(resource: Resource) -> u64 {
         match resource {
-            Resource::Iron => Self::random_amount(10000, 25000),
-            Resource::Aluminum => Self::random_amount(10000, 25000),
-            Resource::Carbon => Self::random_amount(5000, 15000),
-            Resource::Silica => Self::random_amount(5000, 15000),
-            Resource::Uranium => Self::random_amount(3000, 6000),
-            Resource::Water => Self::random_amount(18000, 22000),
+            Resource::Iron => Self::random_amount(500, 1200),
+            Resource::Aluminum => Self::random_amount(400, 900),
+            Resource::Carbon => Self::random_amount(400, 900),
+            Resource::Silica => Self::random_amount(600, 1400),
+            Resource::Uranium => Self::random_amount(200, 450),
+            Resource::Water => Self::random_amount(700, 1400),
         }
     }
 }
@@ -139,6 +136,16 @@ impl ResourceDeposit {
             amount,
             available: amount,
         }
+    }
+
+    pub fn take(&mut self, amount: u64) -> u64 {
+        let taken = self.available.min(amount);
+        self.available -= taken;
+        taken
+    }
+
+    pub fn is_exhausted(&self) -> bool {
+        self.available == 0
     }
 }
 
@@ -173,15 +180,6 @@ pub struct MapObject {
 }
 
 impl MapObject {
-    pub fn empty() -> MapObject {
-        MapObject {
-            structure: None,
-            deposit: None,
-            construction_left: 0,
-            active: false,
-        }
-    }
-
     pub fn with_deposit(deposit: ResourceDeposit) -> MapObject {
         MapObject {
             structure: None,
@@ -208,10 +206,6 @@ impl ObjectManager {
     pub fn new() -> ObjectManager {
         let objects = HashMap::new();
         ObjectManager { objects }
-    }
-
-    pub fn contains(&self, position: &Position) -> bool {
-        self.objects.contains_key(position)
     }
 
     pub fn get(&self, position: &Position) -> Option<&MapObject> {
@@ -257,7 +251,6 @@ pub struct GameMap {
     width: u16,
     height: u16,
     seed: String,
-    world: World<MapTile>,
     cache: WorldCache,
 }
 
@@ -358,17 +351,12 @@ impl GameMap {
             width,
             height,
             seed: seed.to_string(),
-            world,
             cache,
         }
     }
 
     pub fn seed(&self) -> &str {
         &self.seed
-    }
-
-    pub fn world(&self) -> &World<MapTile> {
-        &self.world
     }
 
     pub fn cache(&self) -> &WorldCache {
@@ -446,6 +434,35 @@ impl MapController {
         (self.view_width, self.view_height)
     }
 
+    fn follow_margin(&self) -> i16 {
+        let vw = self.view_width.max(1) as i16;
+        let vh = self.view_height.max(1) as i16;
+        let cap = vw.min(vh) / 4;
+        cap.max(1).min(3)
+    }
+
+    fn keep_cursor_in_slack(&mut self) {
+        let margin = self.follow_margin();
+        let vw = self.view_width.max(1) as i16;
+        let vh = self.view_height.max(1) as i16;
+        let left = self.camera.x + margin;
+        let top = self.camera.y + margin;
+        let right = self.camera.x + vw - 1 - margin;
+        let bottom = self.camera.y + vh - 1 - margin;
+
+        if self.position.x < left {
+            self.camera.x -= left - self.position.x;
+        } else if self.position.x > right {
+            self.camera.x += self.position.x - right;
+        }
+        if self.position.y < top {
+            self.camera.y -= top - self.position.y;
+        } else if self.position.y > bottom {
+            self.camera.y += self.position.y - bottom;
+        }
+        self.clamp_camera();
+    }
+
     pub fn set_viewport(&mut self, width: u16, height: u16) {
         self.view_width = width.max(1);
         self.view_height = height.max(1);
@@ -475,6 +492,68 @@ impl MapController {
         } else {
             false
         }
+    }
+
+    fn position_order(position: &Position) -> (i16, i16) {
+        (position.y, position.x)
+    }
+
+    fn listed_locations(&self, filter: Option<StructureGroup>) -> Vec<(Position, StructureGroup)> {
+        let mut listed: Vec<(Position, StructureGroup)> = self
+            .locations
+            .iter()
+            .filter(|(_, group)| filter.as_ref().map(|want| *want == **group).unwrap_or(true))
+            .map(|(position, group)| (position.clone(), group.clone()))
+            .collect();
+        listed.sort_by_key(|(position, _)| Self::position_order(position));
+        listed
+    }
+
+    fn jump_to(&mut self, position: Position) {
+        self.position = position;
+        self.center_camera_on_cursor();
+    }
+
+    /// Cycle the cursor through placed structures (optionally one group).
+    /// Order is top-to-bottom, then left-to-right. If the cursor is not on a
+    /// listed tile, jump to the next one after it in that order.
+    pub fn cycle_structure(
+        &mut self,
+        backward: bool,
+        filter: Option<StructureGroup>,
+    ) -> Option<(Position, StructureGroup)> {
+        let listed = self.listed_locations(filter);
+        if listed.is_empty() {
+            return None;
+        }
+
+        let current = Self::position_order(&self.position);
+        let on_listed = listed
+            .iter()
+            .position(|(position, _)| Self::position_order(position) == current);
+
+        let index = match on_listed {
+            Some(i) if backward => {
+                if i == 0 {
+                    listed.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            Some(i) => (i + 1) % listed.len(),
+            None if backward => listed
+                .iter()
+                .rposition(|(position, _)| Self::position_order(position) < current)
+                .unwrap_or(listed.len() - 1),
+            None => listed
+                .iter()
+                .position(|(position, _)| Self::position_order(position) > current)
+                .unwrap_or(0),
+        };
+
+        let (position, group) = listed[index].clone();
+        self.jump_to(position.clone());
+        Some((position, group))
     }
 
     pub fn center_camera_on_cursor(&mut self) {
@@ -507,41 +586,58 @@ impl MapController {
 
     fn after_cursor_move(&mut self) {
         if self.follow {
-            self.center_camera_on_cursor();
+            self.keep_cursor_in_slack();
         }
+    }
+
+    pub fn pan_by(&mut self, dx: i16, dy: i16) {
+        self.follow = false;
+        self.camera.x += dx;
+        self.camera.y += dy;
+        self.clamp_camera();
+    }
+
+    pub fn page_step(&self) -> (i16, i16) {
+        (
+            (self.view_width.max(2) / 2) as i16,
+            (self.view_height.max(2) / 2) as i16,
+        )
     }
 
     pub fn pan_left(&mut self) {
-        self.follow = false;
-        if self.camera.x > 0 {
-            self.camera.x -= 1;
-        }
+        self.pan_by(-1, 0);
     }
 
     pub fn pan_right(&mut self) {
-        self.follow = false;
-        let max_x = self.map.width().saturating_sub(self.view_width.min(self.map.width())) as i16;
-        if self.camera.x < max_x {
-            self.camera.x += 1;
-        }
+        self.pan_by(1, 0);
     }
 
     pub fn pan_up(&mut self) {
-        self.follow = false;
-        if self.camera.y > 0 {
-            self.camera.y -= 1;
-        }
+        self.pan_by(0, -1);
     }
 
     pub fn pan_down(&mut self) {
-        self.follow = false;
-        let max_y = self
-            .map
-            .height()
-            .saturating_sub(self.view_height.min(self.map.height())) as i16;
-        if self.camera.y < max_y {
-            self.camera.y += 1;
-        }
+        self.pan_by(0, 1);
+    }
+
+    pub fn page_left(&mut self) {
+        let (sx, _) = self.page_step();
+        self.pan_by(-sx, 0);
+    }
+
+    pub fn page_right(&mut self) {
+        let (sx, _) = self.page_step();
+        self.pan_by(sx, 0);
+    }
+
+    pub fn page_up(&mut self) {
+        let (_, sy) = self.page_step();
+        self.pan_by(0, -sy);
+    }
+
+    pub fn page_down(&mut self) {
+        let (_, sy) = self.page_step();
+        self.pan_by(0, sy);
     }
 
     pub fn clear_activity(&mut self) {
@@ -647,15 +743,30 @@ impl MapController {
         }
     }
 
+    fn register_location(&mut self, position: Position, structure: &Structure) {
+        self.locations.insert(position, structure.group());
+    }
+
+    fn unregister_location(&mut self, position: &Position) {
+        self.locations.remove(position);
+    }
+
     pub fn add_structure(&mut self, structure: Structure) -> Option<MapObject> {
         let position = self.position();
         let is_base = matches!(structure, Structure::Base { .. });
 
-        if let Some(object) = self.objects.get_mut(&position) {
-            if object.structure.is_some() {
-                return None;
-            }
+        if self
+            .objects
+            .get(&position)
+            .and_then(|object| object.structure.as_ref())
+            .is_some()
+        {
+            return None;
+        }
 
+        self.register_location(position.clone(), &structure);
+
+        if let Some(object) = self.objects.get_mut(&position) {
             object.structure = Option::from(structure);
             object.construction_left = CONSTRUCTION_TICKS;
             object.active = false;
@@ -664,6 +775,8 @@ impl MapController {
             }
             return None;
         }
+
+        self.register_location(position.clone(), &structure);
 
         let object = MapObject {
             structure: Option::from(structure),
@@ -690,6 +803,7 @@ impl MapController {
                 object.structure = None;
                 object.construction_left = 0;
                 object.active = false;
+                self.unregister_location(&position);
                 self.add_object(position, object);
                 true
             }

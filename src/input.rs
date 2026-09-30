@@ -16,6 +16,10 @@ pub enum Input {
     CameraRight,
     CameraUp,
     CameraDown,
+    CameraPageLeft,
+    CameraPageRight,
+    CameraPageUp,
+    CameraPageDown,
     Confirm,
     Destroy,
     MenuNext,
@@ -25,6 +29,10 @@ pub enum Input {
     ToggleFollow,
     PinHome,
     GoHome,
+    NextStructure,
+    PreviousStructure,
+    NextBase,
+    PreviousBase,
     Help,
     LogPageUp,
     LogPageDown,
@@ -45,12 +53,20 @@ impl Input {
                 | Input::CameraRight
                 | Input::CameraUp
                 | Input::CameraDown
+                | Input::CameraPageLeft
+                | Input::CameraPageRight
+                | Input::CameraPageUp
+                | Input::CameraPageDown
                 | Input::MenuNext
                 | Input::MenuPrevious
                 | Input::SelectNext
                 | Input::SelectPrevious
                 | Input::LogPageUp
                 | Input::LogPageDown
+                | Input::NextStructure
+                | Input::PreviousStructure
+                | Input::NextBase
+                | Input::PreviousBase
         )
     }
 }
@@ -83,6 +99,18 @@ fn map_key(event: KeyEvent) -> Option<Input> {
     let shift = event.modifiers.contains(KeyModifiers::SHIFT);
 
     let input = match event.code {
+        KeyCode::Left | KeyCode::Char('a') | KeyCode::Char('A') if alt && shift => {
+            Input::CameraPageLeft
+        }
+        KeyCode::Right | KeyCode::Char('d') | KeyCode::Char('D') if alt && shift => {
+            Input::CameraPageRight
+        }
+        KeyCode::Up | KeyCode::Char('w') | KeyCode::Char('W') if alt && shift => {
+            Input::CameraPageUp
+        }
+        KeyCode::Down | KeyCode::Char('s') | KeyCode::Char('S') if alt && shift => {
+            Input::CameraPageDown
+        }
         KeyCode::Left | KeyCode::Char('a') | KeyCode::Char('A') if alt => Input::CameraLeft,
         KeyCode::Right | KeyCode::Char('d') | KeyCode::Char('D') if alt => Input::CameraRight,
         KeyCode::Up | KeyCode::Char('w') | KeyCode::Char('W') if alt => Input::CameraUp,
@@ -107,6 +135,10 @@ fn map_key(event: KeyEvent) -> Option<Input> {
         KeyCode::F(4) => Input::ToggleFollow,
         KeyCode::F(3) => Input::PinHome,
         KeyCode::Home => Input::GoHome,
+        KeyCode::Char('n') => Input::NextStructure,
+        KeyCode::Char('N') => Input::PreviousStructure,
+        KeyCode::Char('b') => Input::NextBase,
+        KeyCode::Char('B') => Input::PreviousBase,
         KeyCode::Char('?') => Input::Help,
         KeyCode::Esc => Input::Quit,
         _ => return None,
