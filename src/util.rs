@@ -108,6 +108,10 @@ pub fn get_log(message: String) -> String {
     format!("[{}] {}", time, message)
 }
 
+pub fn get_log_bare(message: String) -> String {
+    format!("{}", message)
+}
+
 /// Chronological console: newest line is last. `scroll == 0` pins the view to
 /// the tail so new messages keep coming into view; Page Up moves the window
 /// toward older lines and holds it there until Page Down reaches the tail.
@@ -193,18 +197,12 @@ impl ConsoleLog {
 }
 
 pub fn format_welcome_message(seed: &str) -> String {
-    let mut message = String::from("Welcome to Exo Colony 0.3!");
-    message.push_str(&format!(" World seed: {}.", seed));
-    message.push_str(" Landing crate on board. Builds spend stock.");
-    message.push_str(" Arrows/WASD move the cursor. Alt+Arrows/WASD pan the camera.");
-    message.push_str(" Alt+Shift+Arrows page-pan half a view.");
-    message.push_str(" F4 toggles camera-follow (slack: camera moves only at the view edge).");
-    message.push_str(" F3 pins home, Home returns to it.");
-    message.push_str(" n/N cycle structures, b/B cycle bases.");
-    message.push_str(" ; ' cycle the build menu. - = (or , .) cycle variants.");
-    message.push_str(" PageUp/PageDown scroll the console (pinned to latest at the bottom).");
-    message.push_str(" Enter places a structure. Delete removes one. F1 or ? opens missions and keys. Esc quits.");
-    get_log(message)
+    let mut message = String::from("Welcome to Exo Colony 0.3!\n");
+    message.push_str(&format!("World seed: {}.\n", seed));
+    message.push_str(" Arrows/WASD move the cursor. Alt+Arrows/WASD pan the camera.\n");
+    message.push_str(" F1 or ? toggles help and missions.\n");
+    message.push_str(" Enter places a structure. Delete removes one. Esc quits.\n");
+    get_log_bare(message)
 }
 
 pub fn help_lines() -> Vec<String> {
