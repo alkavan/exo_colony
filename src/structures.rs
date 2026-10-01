@@ -12,6 +12,7 @@ use crate::component::{
 use crate::game::{Commodity, Flora, Manufactured, MapObject, MapTile, Resource};
 use crate::gui::MenuSelector;
 use crate::managers::ResourceManager;
+use crate::supply_chain::{manufactured_inputs, resource_inputs, Catalog};
 use std::slice::Iter;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -600,35 +601,15 @@ pub struct ResourceRequireFactory {}
 
 impl ResourceRequireFactory {
     fn energy_for_manufactured(resource: &Manufactured) -> u64 {
-        match resource {
-            Manufactured::Silicon => 30,
-            Manufactured::Steel => 25,
-            Manufactured::Gravel => 10,
-            Manufactured::Hydrogen => 20,
-            Manufactured::FuelPellet => 50,
-        }
+        Catalog::refine(resource).map(|recipe| recipe.energy).unwrap_or(0)
     }
 
     fn resources_for_manufactured(resource: &Manufactured) -> HashMap<Resource, u64> {
-        let mut requires = HashMap::new();
-
-        match resource {
-            Manufactured::Silicon => {
-                requires.insert(Resource::Silica, 4);
-            }
-            Manufactured::Steel => {
-                requires.insert(Resource::Iron, 3);
-            }
-            Manufactured::Gravel => {}
-            Manufactured::Hydrogen => {
-                requires.insert(Resource::Water, 6);
-            }
-            Manufactured::FuelPellet => {
-                requires.insert(Resource::Uranium, 2);
-            }
-        }
-
-        requires
+        Catalog::refine(resource)
+            .map(resource_inputs)
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
     }
 }
 
@@ -636,59 +617,25 @@ pub struct CommodityRequireFactory {}
 
 impl CommodityRequireFactory {
     fn energy_for_commodity(commodity: &Commodity) -> u64 {
-        match commodity {
-            Commodity::Concrete => 25,
-            Commodity::Fuel => 20,
-            Commodity::Semiconductor => 40,
-            Commodity::Glass => 35,
-            Commodity::FuelRod => 60,
-        }
+        Catalog::manufacture(commodity)
+            .map(|recipe| recipe.energy)
+            .unwrap_or(0)
     }
 
     fn resources_for_commodity(commodity: &Commodity) -> HashMap<Resource, u64> {
-        let mut requires = HashMap::new();
-
-        match commodity {
-            Commodity::Concrete => {
-                requires.insert(Resource::Silica, 5);
-            }
-            Commodity::Fuel => {}
-            Commodity::Semiconductor => {
-                requires.insert(Resource::Aluminum, 3);
-                requires.insert(Resource::Carbon, 4);
-            }
-            Commodity::Glass => {
-                requires.insert(Resource::Silica, 6);
-            }
-            Commodity::FuelRod => {}
-        }
-
-        requires
+        Catalog::manufacture(commodity)
+            .map(resource_inputs)
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
     }
 
     fn manufactured_for_commodity(commodity: &Commodity) -> HashMap<Manufactured, u64> {
-        let mut requires = HashMap::new();
-
-        match commodity {
-            Commodity::Concrete => {
-                requires.insert(Manufactured::Gravel, 5);
-            }
-            Commodity::Fuel => {
-                requires.insert(Manufactured::Hydrogen, 2);
-            }
-            Commodity::Semiconductor => {
-                requires.insert(Manufactured::Silicon, 2);
-            }
-            Commodity::Glass => {
-                requires.insert(Manufactured::Silicon, 1);
-            }
-            Commodity::FuelRod => {
-                requires.insert(Manufactured::FuelPellet, 1);
-                requires.insert(Manufactured::Steel, 1);
-            }
-        }
-
-        requires
+        Catalog::manufacture(commodity)
+            .map(manufactured_inputs)
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
     }
 }
 

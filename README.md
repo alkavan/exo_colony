@@ -35,20 +35,6 @@ is chosen and shown in the console and map title.
 | `?`                                         | Reprint controls in the console                  |
 | Esc                                         | Quit                                             |
 
-The console keeps the last **256** lines, oldest first and newest at the bottom.
-While you are pinned to the tail, new messages keep the view following.
-Page Up looks back; Page Down returns to the tail and resumes follow.
-
-The first Base you place is pinned as home automatically if none is set.
-
-With follow-on, the camera only shifts when the cursor hits a margin inside the view (about three tiles).
-Jumps (`n`/`N`, Home) still recenter.
-
-On the map, lowercase structure glyphs are still under construction.
-Bright glyphs are active this tick; dark glyphs are idle.
-Deposits and mines are tinted by ore: rust Iron, silver Aluminum, pale Silica,
-cyan Water, green Uranium, dark Carbon.
-
 ## Screenshots
 
 ### Map with resources and built structures

@@ -11,6 +11,7 @@ use crate::structures::{
     BatteryTrait, CommodityStorageTrait, EnergyTrait, MineOutputTrait, ResourceStorageTrait,
     Structure, StructureGroup,
 };
+use crate::supply_chain::Catalog;
 
 use std::iter::FromIterator;
 
@@ -965,37 +966,11 @@ pub struct BuildCost {
 
 impl BuildCost {
     pub fn for_group(group: &StructureGroup) -> BuildCost {
-        match group {
-            StructureGroup::Base => BuildCost {
-                resources: vec![(Resource::Iron, 15)],
-                commodities: vec![(Commodity::Concrete, 5)],
-                manufactured: vec![],
-            },
-            StructureGroup::Power => BuildCost {
-                resources: vec![(Resource::Silica, 5)],
-                commodities: vec![],
-                manufactured: vec![(Manufactured::Steel, 5)],
-            },
-            StructureGroup::Mine => BuildCost {
-                resources: vec![(Resource::Iron, 8)],
-                commodities: vec![],
-                manufactured: vec![],
-            },
-            StructureGroup::Refinery => BuildCost {
-                resources: vec![(Resource::Iron, 8)],
-                commodities: vec![],
-                manufactured: vec![(Manufactured::Steel, 8)],
-            },
-            StructureGroup::Factory => BuildCost {
-                resources: vec![(Resource::Iron, 8)],
-                commodities: vec![(Commodity::Concrete, 5)],
-                manufactured: vec![(Manufactured::Steel, 5)],
-            },
-            StructureGroup::Storage => BuildCost {
-                resources: vec![(Resource::Iron, 8)],
-                commodities: vec![(Commodity::Concrete, 5)],
-                manufactured: vec![],
-            },
+        let (resources, manufactured, commodities) = Catalog::build_parts(group);
+        BuildCost {
+            resources: resources.to_vec(),
+            manufactured: manufactured.to_vec(),
+            commodities: commodities.to_vec(),
         }
     }
 

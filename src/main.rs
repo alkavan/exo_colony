@@ -11,6 +11,7 @@ mod gui;
 mod input;
 mod managers;
 mod structures;
+mod supply_chain;
 mod util;
 pub(crate) mod terminal;
 
@@ -29,6 +30,7 @@ use crate::gui::{
 use crate::input::{poll_inputs, Input};
 use crate::managers::{BuildCost, EnergyManager, ResourceManager};
 use crate::structures::{StructureFactory, StructureGroup};
+use crate::supply_chain::Catalog;
 
 use crate::util::{
     format_help_message, format_welcome_message, parse_args, random_seed, ConsoleLog, EventBus,
@@ -205,6 +207,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 StructureGroup::Storage => {}
             }
 
+            let chain_lines = Catalog::panel_lines(
+                &menu.selected(),
+                Some(mine_select.selected()),
+                &refinery_select.selected(),
+                Some(factory_select.selected()),
+            );
+            frame.render_widget(gui::draw_chain_widget(&chain_lines), right_layout[1]);
+
             let cursor = controller.position();
             let info_panel = gui::draw_info_widget(
                 cursor.clone(),
@@ -212,7 +222,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 controller.object_at(&cursor),
                 controller.home(),
             );
-            frame.render_widget(info_panel, right_layout[1]);
+            frame.render_widget(info_panel, right_layout[2]);
 
             let map_viewport = main_layout[1].inner(&margin_1);
             controller.set_viewport(map_viewport.width, map_viewport.height);

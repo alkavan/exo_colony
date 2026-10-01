@@ -353,7 +353,11 @@ pub fn build_right_layout(area: Rect) -> Vec<Rect> {
     split_layout(
         area,
         Direction::Vertical,
-        [Constraint::Percentage(50), Constraint::Percentage(50)],
+        [
+            Constraint::Percentage(40),
+            Constraint::Percentage(30),
+            Constraint::Percentage(30),
+        ],
     )
 }
 
@@ -524,6 +528,14 @@ pub fn format_map_title(
         "Map [{}] cam({},{}) cur({},{}) home:{} n:{} {}x{} seed:{}",
         mode, camera.x, camera.y, cursor.x, cursor.y, home, structure_count, world_w, world_h, seed
     )
+}
+
+pub fn draw_chain_widget(lines: &[String]) -> List<'static> {
+    let items = lines
+        .iter()
+        .map(|line| ListItem::new(line.clone()))
+        .collect();
+    draw_list_widget("Supply Chain", items)
 }
 
 pub fn draw_structure_menu_widget(menu: &Menu) -> List<'static> {
