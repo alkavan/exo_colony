@@ -32,8 +32,8 @@ is chosen and shown in the console and map title.
 | PageUp / PageDown                           | Scroll the console log                           |
 | Enter                                       | Place structure (then it builds for a few ticks) |
 | Delete                                      | Remove structure on the cursor tile              |
-| `?`                                         | Reprint controls in the console                  |
-| Esc                                         | Quit                                             |
+| F1 / `?`                                    | Missions and keys overlay (Esc closes it)        |
+| Esc                                         | Close the overlay, or quit                       |
 
 ## Screenshots
 

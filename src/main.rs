@@ -19,7 +19,7 @@ use std::error::Error;
 use std::time::SystemTime;
 
 use tui::layout::Margin;
-use tui::widgets::Paragraph;
+use tui::widgets::{Clear, Paragraph};
 
 use worldgen::world::Size;
 
@@ -33,8 +33,8 @@ use crate::structures::{StructureFactory, StructureGroup};
 use crate::supply_chain::Catalog;
 
 use crate::util::{
-    format_help_message, format_welcome_message, parse_args, random_seed, ConsoleLog, EventBus,
-    GameEvent, Tick,
+    format_help_message, format_welcome_message, help_lines, parse_args, random_seed, ConsoleLog,
+    EventBus, GameEvent, Tick,
 };
 
 fn print_usage() {
@@ -142,6 +142,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mut map_widget: Option<Paragraph> = None;
+    let mut modal_open = false;
 
     controller.generate_deposits();
 
@@ -243,6 +244,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             // If the widget was drawn by the draw event, render it, otherwise do not.
             if map_widget.is_some() {
                 frame.render_widget(map_widget.clone().unwrap(), map_viewport);
+            }
+
+            if modal_open {
+                let mut lines = Catalog::mission_lines();
+                lines.push(String::new());
+                lines.extend(help_lines());
+                let area = frame.size();
+                frame.render_widget(Clear, area);
+                frame.render_widget(gui::draw_modal(&lines.join("\n")), area);
             }
         })?;
 
@@ -360,9 +370,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 None => console.push_log("No bases to cycle.".to_string()),
                             }
                         }
-                        Input::Help => {
-                            console.push(format_help_message());
+                        Input::ToggleModal | Input::Help => {
+                            modal_open = !modal_open;
+                            if modal_open {
+                                console.push(format_help_message());
+                            }
                         }
+                        Input::Quit if modal_open => {
+                            modal_open = false;
+                        }
+                        Input::Quit => break 'game,
+                        _ if modal_open => {}
                         Input::Confirm => {
                             let structure_group = menu.selected();
                             let tile_ok = StructureFactory::allowed(
@@ -450,10 +468,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 ));
                             }
                         }
-                        Input::Quit => {
-                            terminal::restore(&mut terminal)?;
-                            break 'game;
-                        }
                         Input::Mouse(message) => {
                             console.push_log(message);
                         }
@@ -466,5 +480,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+    terminal::restore(&mut terminal)?;
     Ok(())
 }

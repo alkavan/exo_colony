@@ -69,12 +69,63 @@ pub struct Milestone {
     pub placeable: bool,
 }
 
-const MINE_GRAVEL: Ingredient = Ingredient {
-    good: Good::Manufactured(Manufactured::Gravel),
-    amount: 1,
-};
-
 const RECIPES: &[Recipe] = &[
+    Recipe {
+        id: "mine-iron",
+        producer: ProducerKind::Mine,
+        output: Good::Resource(Resource::Iron),
+        amount: 1,
+        energy: 15,
+        inputs: &[],
+    },
+    Recipe {
+        id: "mine-aluminum",
+        producer: ProducerKind::Mine,
+        output: Good::Resource(Resource::Aluminum),
+        amount: 1,
+        energy: 15,
+        inputs: &[],
+    },
+    Recipe {
+        id: "mine-carbon",
+        producer: ProducerKind::Mine,
+        output: Good::Resource(Resource::Carbon),
+        amount: 1,
+        energy: 15,
+        inputs: &[],
+    },
+    Recipe {
+        id: "mine-silica",
+        producer: ProducerKind::Mine,
+        output: Good::Resource(Resource::Silica),
+        amount: 1,
+        energy: 15,
+        inputs: &[],
+    },
+    Recipe {
+        id: "mine-uranium",
+        producer: ProducerKind::Mine,
+        output: Good::Resource(Resource::Uranium),
+        amount: 1,
+        energy: 15,
+        inputs: &[],
+    },
+    Recipe {
+        id: "mine-water",
+        producer: ProducerKind::Mine,
+        output: Good::Resource(Resource::Water),
+        amount: 1,
+        energy: 15,
+        inputs: &[],
+    },
+    Recipe {
+        id: "mine-gravel",
+        producer: ProducerKind::Mine,
+        output: Good::Manufactured(Manufactured::Gravel),
+        amount: 1,
+        energy: 0,
+        inputs: &[],
+    },
     Recipe {
         id: "silicon",
         producer: ProducerKind::Refinery,
@@ -304,20 +355,26 @@ impl Catalog {
     }
 
     pub fn refine(output: &Manufactured) -> Option<&'static Recipe> {
-        RECIPES.iter().find(|recipe| {
+        Catalog::recipes().iter().find(|recipe| {
             recipe.producer == ProducerKind::Refinery
                 && recipe.output == Good::Manufactured(*output)
         })
     }
 
     pub fn manufacture(output: &Commodity) -> Option<&'static Recipe> {
-        RECIPES.iter().find(|recipe| {
+        Catalog::recipes().iter().find(|recipe| {
             recipe.producer == ProducerKind::Factory && recipe.output == Good::Commodity(*output)
         })
     }
 
+    pub fn mine(output: Good) -> Option<&'static Recipe> {
+        Catalog::recipes()
+            .iter()
+            .find(|recipe| recipe.producer == ProducerKind::Mine && recipe.output == output)
+    }
+
     pub fn consumers_of(good: Good) -> Vec<&'static Recipe> {
-        RECIPES
+        Catalog::recipes()
             .iter()
             .filter(|recipe| recipe.inputs.iter().any(|input| input.good == good))
             .collect()
@@ -339,9 +396,15 @@ impl Catalog {
         match group {
             StructureGroup::Mine => {
                 if let Some(resource) = mine {
-                    lines.push(format!("Vein: +1 {} +1 Gravel", resource));
-                    push_feeds(&mut lines, Good::Resource(resource));
-                    push_feeds(&mut lines, MINE_GRAVEL.good);
+                    let ore = Good::Resource(resource);
+                    if let Some(recipe) = Catalog::mine(ore) {
+                        lines.push(format_recipe(recipe));
+                    }
+                    if let Some(gravel) = Catalog::mine(Good::Manufactured(Manufactured::Gravel)) {
+                        lines.push(format_recipe(gravel));
+                    }
+                    push_feeds(&mut lines, ore);
+                    push_feeds(&mut lines, Good::Manufactured(Manufactured::Gravel));
                 } else {
                     lines.push("Place on a colored deposit. Mines that vein.".to_string());
                 }
@@ -368,22 +431,35 @@ impl Catalog {
             _ => {}
         }
 
+        lines.push("F1 missions and keys".to_string());
+        lines
+    }
+
+    pub fn mission_lines() -> Vec<String> {
         let goal = Catalog::current_goal();
-        lines.push(format!(
-            "Goal: {} unlocks {}",
-            goal.name, goal.unlocks
-        ));
-        if let Some(market) = MILESTONES
-            .iter()
-            .find(|item| item.id == MilestoneId::IntergalacticMarket)
-        {
-            lines.push(format!("{} enables {}", market.name, market.unlocks));
-        }
-        if let Some(highway) = MILESTONES
-            .iter()
-            .find(|item| item.id == MilestoneId::GalacticSuperhighway)
-        {
-            lines.push(format!("{}: {}", highway.name, highway.unlocks));
+        let mut lines = vec!["Missions".to_string()];
+        for milestone in Catalog::milestones() {
+            let state = if milestone.placeable {
+                "placeable"
+            } else {
+                "locked"
+            };
+            let mark = if milestone.id == goal.id {
+                "current"
+            } else {
+                "later"
+            };
+            let line = match milestone.after {
+                Some(previous) => format!(
+                    "{}: {} ({}) after {:?} — {}",
+                    mark, milestone.name, state, previous, milestone.unlocks
+                ),
+                None => format!(
+                    "{}: {} ({}) unlocks {}",
+                    mark, milestone.name, state, milestone.unlocks
+                ),
+            };
+            lines.push(line);
         }
         lines
     }
@@ -420,8 +496,8 @@ fn format_recipe(recipe: &Recipe) -> String {
             .join(", ")
     };
     format!(
-        "+{} {} needs {} ({} energy)",
-        recipe.amount, recipe.output, needs, recipe.energy
+        "{}: +{} {} needs {} ({} energy)",
+        recipe.id, recipe.amount, recipe.output, needs, recipe.energy
     )
 }
 

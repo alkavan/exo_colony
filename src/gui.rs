@@ -530,6 +530,18 @@ pub fn format_map_title(
     )
 }
 
+pub fn draw_modal(text: &str) -> Paragraph<'static> {
+    Paragraph::new(text.to_string())
+        .block(
+            Block::default()
+                .title(" [ Missions / Help — Esc or F1 closes ] ")
+                .borders(Borders::ALL)
+                .style(Style::default().fg(Color::White).bg(Color::Black)),
+        )
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .wrap(Wrap { trim: false })
+}
+
 pub fn draw_chain_widget(lines: &[String]) -> List<'static> {
     let items = lines
         .iter()

@@ -203,15 +203,34 @@ pub fn format_welcome_message(seed: &str) -> String {
     message.push_str(" n/N cycle structures, b/B cycle bases.");
     message.push_str(" ; ' cycle the build menu. - = (or , .) cycle variants.");
     message.push_str(" PageUp/PageDown scroll the console (pinned to latest at the bottom).");
-    message.push_str(" Enter places a structure. Delete removes one. ? reprints help. Esc quits.");
+    message.push_str(" Enter places a structure. Delete removes one. F1 or ? opens missions and keys. Esc quits.");
     get_log(message)
 }
 
+pub fn help_lines() -> Vec<String> {
+    vec![
+        "Keys".to_string(),
+        "Arrows / WASD                  Move the build cursor".to_string(),
+        "Alt+Arrows / Alt+WASD          Pan the camera (turns follow off)".to_string(),
+        "Alt+Shift+Arrows / WASD        Page-pan half a view (turns follow off)".to_string(),
+        "F4                             Toggle camera-follow (edge slack)".to_string(),
+        "F3                             Pin home at the cursor".to_string(),
+        "Home                           Return cursor and camera to home".to_string(),
+        "n / N                          Next / previous structure".to_string(),
+        "b / B                          Next / previous Base".to_string(),
+        "Tab / Shift+Tab, [ ]           Cycle build menu groups".to_string(),
+        "; '                            Cycle build menu groups".to_string(),
+        "- = / , . / End                Cycle structure variants".to_string(),
+        "PageUp / PageDown              Scroll the console log".to_string(),
+        "Enter                          Place structure".to_string(),
+        "Delete                         Remove structure on the cursor tile".to_string(),
+        "F1 / ?                         Open or close this overlay".to_string(),
+        "Esc                            Close overlay, or quit".to_string(),
+    ]
+}
+
 pub fn format_help_message() -> String {
-    get_log(
-        "Controls: cursor Arrows/WASD | camera Alt+Arrows | Alt+Shift+Arrows page-pan | F4 follow (edge slack) | F3 pin home | Home go home | n/N next/prev structure | b/B next/prev base | ;/' menu | -/= variant | PgUp/PgDn console | Enter build | Del destroy | Esc quit."
-            .to_string(),
-    )
+    get_log(help_lines().join(" | "))
 }
 
 pub fn parse_args(args: impl IntoIterator<Item = String>) -> (Option<String>, bool) {
